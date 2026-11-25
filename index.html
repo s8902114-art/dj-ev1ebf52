@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0}</style></head><body>
+<title>活動 DJ 選歌台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE occasion tool: live at an event, has to read clearly in a dim room
+   IDEA a DJ booth cue board: one coloured pad per cue, laid out by the event's rundown
+   PICTURE the deck's waveform with the in/out segment and playhead, plus a big fade-out key
+   COLOUR fixed booth palette: warm charcoal ground, bone ink, one colour per scene
+   TYPE Noto Sans TC 900 for headings/numbers + 400/500 for body text
+   LAYOUT laptop: rundown pads on the left, deck sticky on the right; phone: deck first, pads below, library at the bottom */
+:root{color-scheme:dark;--bg:#191815;--panel:#23211d;--line:#3a3731;--ink:#f3efe6;--mute:#b3ab9c;--warm:#e8b86b;--enter:#ff6a55;--mid:#c6e05a;--award:#ffd23f;--photo:#ff94bb;--end:#86bdff;--talk:#7fd6c2}
+*{box-sizing:border-box;min-width:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans TC",system-ui,sans-serif;margin:0;overflow-x:clip}
+.band{padding-block:clamp(20px,3vw,40px);padding-left:max(5vw,16px,env(safe-area-inset-left,0px));padding-right:max(5vw,16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-size:clamp(32px,5vw,48px);line-height:1.05;letter-spacing:-.02em;margin:0;font-weight:900}
+h2{font-size:24px;margin:0 0 4px;font-weight:900;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:8px 0 0;max-width:62ch}
+.top{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:end;justify-content:space-between}
+.keys{display:flex;flex-wrap:wrap;gap:8px;color:var(--mute);font-size:14px}
+kbd{font:700 13px/1 "Noto Sans TC";background:var(--panel);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:4px 7px;color:var(--ink)}
+.booth{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;margin-top:24px;align-items:start}
+.deck{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.deckhead{display:flex;justify-content:space-between;gap:12px;align-items:start}
+.np{font-size:13px;color:var(--mute)}
+.nt{font-size:22px;font-weight:900;line-height:1.2;margin-top:2px}
+.na{color:var(--mute);font-size:15px}
+.clock{font-size:clamp(34px,5vw,48px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1;text-align:right;white-space:nowrap}
+.clock small{display:block;font-size:13px;font-weight:500;color:var(--mute);margin-top:6px}
+.fig{position:relative;height:150px;margin:16px 0 12px;border-radius:10px;background:#12110f;cursor:crosshair;overflow:hidden}
+.fig canvas{position:absolute;inset:0;width:100%;height:100%}
+.figmsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:16px;color:var(--mute);font-size:14px;pointer-events:none}
+.alert{min-height:28px;font-weight:700;font-size:16px}
+.alert.on{color:var(--award)}
+.tr{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:10px;margin-top:8px}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{min-height:44px;border-radius:10px;border:1px solid var(--line);background:#2d2a25;font-weight:700;padding:8px 14px}
+.btn:hover{background:#36332d}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.pad:focus-visible,.chip:focus-visible{outline:2px solid var(--award);outline-offset:2px}
+.btn.fade{background:var(--award);color:#191815;border-color:var(--award);font-size:18px}
+.btn.fade:hover{background:#ffe07a}
+.btn.sm{min-height:36px;padding:4px 10px;font-size:14px;font-weight:500}
+.edit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.edit label{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+input,select{font:16px "Noto Sans TC",sans-serif;color:var(--ink);background:#12110f;border:1px solid var(--line);border-radius:8px;padding:8px;width:100%}
+.row2{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.hint{font-size:13px;color:var(--mute);grid-column:1/-1;margin:0}
+.list{display:grid;gap:8px}
+.pad{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--c);border-radius:12px;padding:10px 12px}
+.pad.sel{background:#2f2c26;border-color:var(--c)}
+.pad.play{box-shadow:inset 0 0 0 2px var(--c)}
+.num{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;background:var(--c);color:#191815;font-weight:900}
+.pt{font-weight:700;line-height:1.3}
+.pm{font-size:13px;color:var(--mute)}
+.ptime{font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--mute);text-align:right}
+.scene{font-size:13px;font-weight:700;color:var(--c);margin:14px 0 2px}
+.scene:first-child{margin-top:0}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lib{border-top:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px}
+.chip{min-height:40px;border-radius:999px;border:1px solid var(--c);background:transparent;padding:6px 16px;font-weight:700;color:var(--c)}
+.chip[aria-pressed=true]{background:var(--c);color:#191815}
+.lead{color:var(--mute);margin:0 0 16px;max-width:70ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.ct{font-weight:900;font-size:17px;line-height:1.3}
+.use{display:inline-block;font-size:13px;font-weight:700;color:#191815;background:var(--c);border-radius:6px;padding:1px 8px;margin-right:6px}
+.why{font-size:14px;color:var(--mute);margin:0;flex:1}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.links a{color:var(--ink);font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.mode{margin:12px 0 0;padding:8px 12px;border-radius:8px;font-size:14px;max-width:70ch;line-height:1.5}
+.mode.embed{background:color-mix(in srgb,var(--mid) 20%,var(--panel));color:var(--ink)}
+.mode.link{background:var(--panel);border:1px solid var(--line);color:var(--mute)}
+.spwrap{margin-top:12px;min-height:80px;background:#12110f;border-radius:12px;overflow:hidden}
+.spwrap iframe{display:block;border:0;border-radius:12px}
+.open{display:inline-block;margin-top:10px;color:var(--ink);font-size:14px;text-underline-offset:3px}
+a.btn{display:inline-flex;align-items:center;text-decoration:none;color:inherit}
+.btn.pl{background:var(--c,var(--award));border-color:var(--c,var(--award));color:#191815}
+.own{margin-top:20px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.ownh{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-bottom:10px}
+.ownf{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,.9fr) auto;gap:10px;align-items:end}
+.ownf label{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+.own .hint{margin:10px 0 0}
+@media(max-width:860px){.ownf{grid-template-columns:repeat(2,minmax(0,1fr))}.ownf .wide{grid-column:1/-1}}
+.edit>.full{grid-column:1/-1}
+.qnav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.ql{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.ql li{display:flex;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line)}
+.ql li:last-child{border-bottom:0}
+.ql li.cur{background:#34302a}
+.ql li.cur .qt{color:var(--award);font-weight:700}
+.qb{width:34px;height:34px;flex:none;border-radius:8px;border:1px solid var(--line);background:#2d2a25;color:var(--ink);display:grid;place-items:center;text-decoration:none;cursor:pointer;font:inherit}
+.qb:hover{background:#3a362f}
+.qt{flex:1;min-width:0;line-height:1.3}
+.qt small{color:var(--mute);font-weight:400}
+.ytwrap{margin-top:12px;border-radius:12px;overflow:hidden;background:#000}
+.ytwrap iframe{display:block;width:100%;border:0}
+.tlabel{font-size:13px;color:var(--mute);margin-top:14px}
+.chip.th{--c:var(--ink)}
+#themes{margin:6px 0 8px}
+#chips{margin-top:6px}
+.clap{font-size:14px;font-weight:700;color:var(--c)}
+.warm{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:14px}
+.wbar{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chips.sub{margin:0}
+.wsum{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-size:13px;color:var(--mute);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n{color:var(--mute);font-variant-numeric:tabular-nums}
+td.tm{font-variant-numeric:tabular-nums;white-space:nowrap}
+td.lk{white-space:nowrap;font-size:14px}
+td.lk a{color:var(--ink);text-underline-offset:3px}
+tr.m30 td{border-bottom:2px solid var(--c)}
+.foot{color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+@media(max-width:860px){.booth{grid-template-columns:minmax(0,1fr)}.deck{order:-1;position:static}}
+@media(max-width:600px){.edit{grid-template-columns:repeat(2,minmax(0,1fr))}.fig{height:96px;margin:10px 0 8px}.nt{font-size:18px}.edit{max-height:38svh;overflow:auto}.tr{grid-template-columns:1fr 1.3fr 1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="band"><div class="wrap">
+  <div class="top">
+    <div>
+      <h1>活動 DJ 選歌台</h1>
+      <p class="sub">按活動流程排好每一首歌，每首可以設定起點、終點和淡出。選歌庫裡每首歌按 ▶ 就能播，排進流程後可以設定起點和終點。</p>
+    <p id="mode" class="mode" hidden></p></div>
+    <div class="keys"><span><kbd>1</kbd>–<kbd>9</kbd> 播放第幾首</span><span><kbd>Space</kbd> 淡出</span><span><kbd>Esc</kbd> 立刻停</span><span><kbd>←</kbd><kbd>→</kbd> 歌單上下首</span></div>
+  </div>
+
+  <div class="booth">
+    <div>
+      <div id="list" class="list"></div>
+      <div class="tools">
+        <button class="btn sm" id="resetBtn">恢復範例流程</button>
+        <button class="btn sm" id="clearBtn">清空流程</button>
+        <span id="confirm" class="pm" hidden></span>
+      </div>
+    </div>
+
+    <section class="deck" id="deck" aria-label="播放台">
+      <div class="deckhead">
+        <div><div class="np" id="npLabel">已選</div><div class="nt" id="nt">—</div><div class="na" id="na"></div></div>
+        <div class="clock"><span id="clock">0:00</span><small id="clockSub">剩餘</small></div>
+      </div>
+      <div class="fig" id="fig"><canvas id="wave"></canvas><div class="figmsg" id="figmsg"></div></div>
+      <div class="alert" id="alert" aria-live="polite"></div>
+      <div class="tr">
+        <button class="btn" id="playBtn">▶ 播放</button>
+        <button class="btn fade" id="fadeBtn">淡出</button>
+        <button class="btn" id="stopBtn">■ 停止</button>
+      </div>
+      <div class="spwrap" id="spWrap"><div id="spEmbed"></div></div>
+      <div class="ytwrap" id="ytWrap" hidden><div id="ytEmbed"></div></div>
+      <a id="openSp" class="open" target="_blank" rel="noopener" hidden>在 Spotify 開啟這首</a>
+      <div class="edit" id="edit"></div>
+    </section>
+  </div>
+</div></div>
+
+<div class="band lib"><div class="wrap">
+  <h2>選歌庫</h2>
+  <p class="lead">先選活動主題，再選情境。每首歌都附上建議用哪一段、放多長。按「加入流程」會排進上面對應的段落。暖場是一小時的整份歌單，頒獎歌都標了拍號、速度和怎麼拍手。</p>
+  <div class="tlabel">活動主題</div>
+  <div class="chips" id="themes"></div>
+  <p class="lead" id="themeTip"></p>
+  <div class="tlabel">情境</div>
+  <div class="chips" id="chips"></div>
+  <p class="lead" id="sceneTip"></p>
+  <div id="cards"></div>
+  <form class="own" id="ownForm" autocomplete="off">
+    <div class="ownh"><b>加自己的歌</b><span class="pm">Spotify 沒有的歌也可以，例如只在 YouTube 或街聲上的樂團。</span></div>
+    <div class="ownf">
+      <label>歌名<input id="ownT" required></label>
+      <label>歌手<input id="ownA"></label>
+      <label class="wide">連結<input id="ownU" inputmode="url" placeholder="貼 Spotify、YouTube 或街聲網址"></label>
+      <label>情境<select id="ownS"></select></label>
+      <button class="btn" type="submit">加入流程</button>
+    </div>
+    <p class="hint" id="ownMsg">Spotify 單曲或歌單連結可以在下載版直接播；其他連結會在新分頁打開。想在這裡播片段、淡出，加入後在播放台按「載入音檔」。</p>
+  </form>
+</div></div>
+
+<div class="band foot"><div class="wrap">範例流程裡的秒數是估計值，正式上場前請先試聽，再用「起點／終點」對準。流程和音檔只存在你這台電腦的瀏覽器裡。</div></div>
+
+<script>
+{
+const TALK=[
+ ['華語流行鋼琴','台灣流行歌改編的鋼琴版，旋律大家熟、沒有歌詞','3FUFVoC4VnwiMNmE7jbOUm','填表・安靜','131 首'],
+ ['Deep Focus','Spotify 官方專注歌單，氛圍電子與鋼琴，最不干擾思考','37i9dQZF1DWZeKCadgRdKQ','填表・安靜','約 260 首'],
+ ['Lofi Girl','lofi 輕節奏，年輕同仁熟悉的讀書音樂','0vvXsWCC9xrXsKd4FyS8kM','填表・小組都可','約 500 首'],
+ ['Jazz in the Background','Spotify 官方爵士背景歌單，咖啡廳感','37i9dQZF1DWV7EzJMK2FUI','小組討論','約 12 小時'],
+ ['Bossa Nova 無人聲','巴西輕爵士吉他，輕鬆有一點律動','1L2Z7EHmclQc1fuCWsFZQL','小組討論','純演奏'],
+ ['KPOP 鋼琴版','熱門 KPOP 改編鋼琴，年輕同仁會心一笑','3rHmgb6drzePEUYXsupXYU','小組討論','鋼琴翻奏']];
+const URLS={"秘密基地|MORE BE US":"https://www.youtube.com/watch?v=W4mknRzwI8M","散步歌|MORE BE US":"https://www.youtube.com/@morebeus_official"};
+const SPID={"天使也會受傷|小男孩樂團":["04rV2bp4iuwvYBfJaxedi7",290476],"Love Options|BESTie":["63gCdrDtZlt1PMIGrzYEqt",0],"NEON (w/ A2O LITE)|A2O":["5PvLNQRNRj61y3CU4SFIY4",0],"幸福在歌唱|A-Lin":["2LXkhg4CglBCHrEdsFum8z",0],"每天情人節|PIZZALI":["6pQt71W16Tvws82psdEbYf",190000],"做我的初戀|PIZZALI":["0Oncty0gIAlW9SrPXYvxkc",181276],"愛情長跑|PIZZALI & 洋蔥":["4CGtluO16TspOBmhYmYEl0",238500],"Goodbye My Friend|小男孩樂團":["6DCGPXT545S1mgKyTc9wpu",232285],"Hey Girl|小男孩樂團":["2kLuVbzpjnRAOwaTnp7C2J",230769],"Crayon|G-DRAGON":["1HMbjnCFGOWd8Sqou4maxM",196920],"Hands Up|BIGBANG":["4Uw0r9to2uZNnMOIntwHq1",237253],"Lollipop|2NE1 & BIGBANG":["2eDGx6nbrznlTmf6YMjrRi",188000],"One Of A Kind|G-DRAGON":["6CtYW6EWGMbfe96eqwCThq",205875],"萬事大吉|理想混蛋":["1OgkenW2SvO8z7wvwHMmUC",190189],"祝你生日快樂|理想混蛋":["0swDTbKkAtlG3FanC6jUct",246666],"接住你|理想混蛋":["4cCpt3dT86O3F7OgkK5n8o",309760],"不是因為天氣晴朗才愛你|理想混蛋":["2VEt42QSQxILgEf9B50xxm",240753],"艾薇塔 Evita|艾薇 Ivy":["al:784Q75kUVg175Op4gj2Od6",206000],"沒人喜歡你 那又怎樣|艾薇 Ivy":["4ITbpz325QVvYYRFOFGtrs",0],"不愛就不愛|艾薇 Ivy":["76zQfy7oguyy6SrFO3sh0C",197000],"Cool With That|艾薇 Ivy":["12kVG2ymluQUdKGHx3foON",0],"暫停|艾薇 Ivy":["3RpR6sbaOmVRxihqyyavTB",0],"心碎復健中|艾薇 Ivy":["41UXUheIFaqFtC4mhaA24o",0],"烏雲日記|艾薇 Ivy":["2uMmfO7yMmi5yBH09pu8Hr",0],"100種生活|盧廣仲":["0UBc4O6zhVuaepOq3lL91S",0],"太陽與地球|盧廣仲":["0bQSWXtpau3VkNI1ZcXTQA",0],"一路順風|盧廣仲":["0gqwYp4fqGVhj2t0GHaD88",0],"寶貝 (In a Day)|張懸":["4fVDiH2VJR44CZ01mpr5Gu",0],"華麗的冒險|陳綺貞":["41QOBqi1x32W5jaq3MClnL",0],"美好的事可不可以發生在我身上|康士坦的變化球":["1viPIivqn5vmMsFUk5CJnw",0],"白鴿|伍佰 & China Blue":["1l1dhQQRZKWJTC1JBAr01v",0],"倔強|五月天":["015CIURZm8atFgpoXo20mf",0],"無與倫比的美麗|蘇打綠":["5kDyL9hy7pW2USIT8XKV3G",306000],"突然的自我|伍佰 & China Blue":["6jLUrsNfwRc2DOuV0MaHyJ",0],"GiiiRIP|BIGBANG":["4i115Ijs5MbfNBYpNsM0Sq",164000],"頑固|五月天":["4arsaJ54woBgIYwXhjWq2o",0],"怪美的|蔡依林":["0cONHWTIfgEpAuVwbbwGgc",0],"大藝術家|蔡依林":["4iuuLSkNSzgCcqrE9lxzag",198000],"早安晨之美|盧廣仲":["7lElpuySb2IiGr9fB91epq",0],"一起去跑步|宇宙人":["2gXE7Vm07yABwOWxE3TRKY",0],"春风来到我Kampung|DIOR 大穎":["7ss8SbMsHmaKlY5EYmLcvU",195000],"甲乙丙丁Strangers|李佳薇":["629FqLOdjtsXh5b45FTk43",210461],"I Just Might|Bruno Mars":["12bYYQaLqHliSXvRIYlq8G",212973],"LOVE ATTACK|RESCENE":["6uosenLUNFZtOIih5T0qfV",181560],"海嶼你|馬也_Crabbit":["6UO9nrihAk6sFGvVHDVTz8",295940],"BANG BANG|IVE":["5jh0xRA7huSeMxCPAmyCav",178046],"欲落未落|DIOR 大穎":["25rKfmSz9QTVtilqZU9f8D",255182],"陪你到這|陳華":["26zxMDfNVe4lAfx1VRmqSt",232500],"靠關係|DIOR 大穎":["0FnMg583fEr89brx7iss5s",234507],"沒有人像我一樣|宇宙人":["5ZIAawvVz8fr74vIk8wX6l",246607],"BiiiG|BIGBANG":["4pZi0VxU2C8zuxCYfEtFuL",164208],"跳樓機|LBI利比":["1XZE0InCx3SdCnLpVsPpZl",201642],"太陽與地球|盧廣仲":["0bQSWXtpau3VkNI1ZcXTQA",262000],"繞路|A-Lin":["38RcCZ3geLYeYMzxTF1tpg",276253],"刻在我心底的名字|盧廣仲":["3OC84eKMxRJ4x0Hcwl9i4i",320165],"想和你看五月的晚霞|陳華":["6pFxVcn6T4BdP8mfZpTQHZ",233406],"愛人錯過|告五人":["27FOde2nUw0pFuj7hlPbaS",292074],"想見你想見你想見你|八三夭":["69zgyr5HVKdInjeKpq1qHa",239794],"幾分之幾|盧廣仲":["4F7ZAsndEIJXyFzJUHNlRu",228570],"披星戴月的想你|告五人":["7tgzj2IqzSgUpxUhjmcF5m",349773],"倒數|鄧紫棋":["2HmM5p02Q2qrYZvXJRLVx3",229333],"如果可以|韋禮安":["72OVnXDzugvrCU25lMi9au",274400],"玫瑰少年|蔡依林":["2uHMTG5xr9Xk7MrXIWrVUH",191718],"帶我去找夜生活|告五人":["4KjPt8HrShkDOASRyMkTJ4",299704],"帥到分手|周湯豪":["3HQtE9VzEeqkGl1zvFeRdJ",219349],"起風了|吳青峰":["6yh3aP8HuImur7v8p1P8fz",313565],"唯一|告五人":["19fp9nI0tq0lcBl7XoCHAb",270760],"APT.|ROSÉ & Bruno Mars":["5vNRhkKd0yEAg8suGBpjeY",169917],"I AM|IVE":["70t7Q6AYG6ZgTYmJWcnkUM",183853],"Celebrity|IU":["4RewTiGEGoO7FWNZUmp1f4",195546],"LOVE DIVE|IVE":["0Q5VnK2DYzRyfqQRJuUtvi",177186],"Blueming|IU":["4Dr2hJ3EnVh2Aaot6fRwDO",217053],"Flowers|Miley Cyrus":["7DSAEUvxU8FajXtRloy8M0",200600],"Dance The Night|Dua Lipa":["11C4y2Yz1XbHmaQwO06s9f",176579],"As It Was|Harry Styles":["4Dvkj6JhhA12EX05fT7y2e",167303],"Levitating|Dua Lipa":["39LLxExYz6ewLAcYrzQQyP",203807],"Golden Hour|JVKE":["5odlY52u43F5BjByhxg7wg",209259],"Sunroof|Nicky Youre & dazy":["51rY2Arz4ds8EfjcVrzC9v",163025],"Watermelon Sugar|Harry Styles":["6UelLqGlWMcVH1E5c4H7lY",173991],"Perfect|Ed Sheeran":["0tgVpDi06FyKpA1z0VMD4v",263400],"Shape of You|Ed Sheeran":["7qiZfU4dY1lWllzX7mPBI3",233712],"It's Beginning to Look a Lot Like Christmas|Michael Bublé":["0lLdorYw7lVrJydTINhWdI",206639],"All I Want for Christmas Is You|Mariah Carey":["0bYg9bo50gSsH3LtXe2SQn",241562],"The Greatest Show|Hugh Jackman（大娛樂家）":["4ylWMuGbMXNDgDd8lErEle",302146],"Uptown Funk|Mark Ronson ft. Bruno Mars":["32OlwWuMpZ6b0aN2RZOeMS",269658],"來個蹦蹦|玖壹壹":["2iN4FKkbiUKfDGQ7ISIEM9",195679],"Happy|Pharrell Williams":["60nZcImufyMA1MKQY3dcCH",233306],"乾杯|五月天":["1pq8manc3lP5iEbLhzuZv2",289200],"好好|五月天":["1Rxn57Wwv6hQUu60MIiMMJ",198551],"恭喜發財|劉德華":["7KkWs6lt3RoWULV0BbMxpM",202613],"好運來|祖海":["7hb1I50OsWdxG9c6lOMaS8",212558],"恭喜恭喜|鄧麗君":["2WvC0WLLmcYGxZ7pBRvZyG",139120],"迎春花|鄧麗君":["4dcrOFH1gwhbt5otibgelu",98746],"喜洋洋|國樂":["2AGUh5Xm1cPz6XDBhfxlBn",169295],"步步高|國樂":["6QVPxABMkSNd5Qw0Yu6iNd",211026],"金蛇狂舞|國樂":["3TQYeSSl26dtOAyEu1N5Vg",136466],"春節序曲|國樂":["7HtIhYmjtGepUKpsnEtIA1",292676],"大展鴻圖|攬佬SKAI ISYOURGOD & AR刘夫阳":["0hEWvzkgbI301JZj947gFz",212727],"浪子回頭|茄子蛋":["301mxTHzMyFOVUXl6U22sf",259372],"愛情你比我想的閣較偉大|茄子蛋":["6m2I6ZyWRkxjBrrLVQILfl",232400],"派對動物|五月天":["4P8cRZZ5Xk1wfsbULoL1Qf",249957],"姊姊|謝金燕":["1FUdiO734Ioy1LJvQmP9nh",199813],"Lucky|Jason Mraz & Colbie Caillat":["0IktbUcnAGrvD03AWnz3Q8",189613],"Can't Stop the Feeling!|Justin Timberlake":["1WkMMavIMc4JZ8cfMmxHkI",237546],"Count on Me|Bruno Mars":["7l1qvxWjxcKpB9PCtBuTbU",197469],"Don't Start Now|Dua Lipa":["3PfIrDoz19wz7qK7tYeu62",183290],"One Kiss|Calvin Harris & Dua Lipa":["7ef4DlsgrMEH11cDZd32M6",214846],"Summer|Calvin Harris":["6YUTL4dYpB9xZO5qExPf05",222533],"Cheap Thrills|Sia":["3S4px9f4lceWdKf0gWciFu",211666],"Closer|The Chainsmokers":["7BKLCZ1jbUBVqRi2FVlTVw",244960],"Something Just Like This|The Chainsmokers & Coldplay":["6RUKPb4LETWmmr3iAEQktW",247160],"Titanium|David Guetta ft. Sia":["0TDLuuLlV54CkRRUOahJb4",245040],"Animals|Martin Garrix":["0A9mHc7oYUoCECqByV8cQR",304228],"Don't You Worry Child|Swedish House Mafia":["5tALkmrC4bRfrSDLimAzuq",212862],"Houdini|Dua Lipa":["6D8y7Bck8h11byRY88Pt2z",185917],"Padam Padam|Kylie Minogue":["44MuEHdlociG8KjhPhOVw5",166266],"Fantastic Baby|BIGBANG":["26eV0R7nbqtlzh316ncU99",230573],"DDU-DU DDU-DU|BLACKPINK":["1PMXpTPJfh3ViK8PMZ9ZnY",209355],"Next Level|aespa":["2zrhoHlFKxFTRF5aMyxMoQ",221573],"Love Shot|EXO":["0yB4jrSwN0bFtFRDR5vyMj",200306],"舞孃|蔡依林":["55V0mdDTtti0B71eqp8lWy",184920],"大藝術家|蔡依林":["5C21cpB9VksdeX0q1oM5uS",198040],"怪美的|蔡依林":["0cONHWTIfgEpAuVwbbwGgc",182343],"三天三夜|張惠妹":["2tdrKieZhERAbGHmUjxtqO",269226],"BAD BOY|張惠妹":["10RdEBwp0PSesD9Yd5jESe",262826],"練舞功|謝金燕":["5vvgDPcKzZ9MwY4Simsddl",210093],"愛你|王心凌":["5Rhe8iJIrShbg9yCs3hUxk",219626],"Sway|Michael Bublé":["2ajUl8lBLAXOXNpG4NEPMz",188066],"The Way You Look Tonight|Frank Sinatra":["6jmlP3dDpGIoASQ9Ij2U1C",157266],"Beyond the Sea|Bobby Darin":["3KzgdYUlqV6TOG7JCmx2Wg",172480],"Feeling Good|Michael Bublé":["3I09LQbHS3NSU46Ly3tPpR",237333],"Mack the Knife|Bobby Darin":["3E5ndyOfO6vFDEIE42HA8o",184333],"Everybody Loves Somebody|Dean Martin":["5I9sHwLDX28tLtzVgKLtpr",167203],"Valerie|Mark Ronson ft. Amy Winehouse":["6kopmMZiyLmw7h66uXcXR7",219413],"Moondance|Van Morrison":["683b4ikwa62JevCjwrmfg6",274040],"Haven't Met You Yet|Michael Bublé":["4fIWvT19w9PR0VVBuPYpWA",244586],"Viva Las Vegas|Elvis Presley":["5Q7ayTarb9Tpmkik5cVMug",144280],"James Bond Theme|John Barry":["589AelScFm0FYQ4VG1biJi",173093],"24K Magic|Bruno Mars":["6b8Be6ljOzmkOmFslEb23P",225983],"Billionaire|Travie McCoy ft. Bruno Mars":["2M9ULmQwTaTGmAdXaXpfz5",211160],"Sing, Sing, Sing|Benny Goodman":["5L8ta4ECl5zeA6bGqY7G38",520293],"Choosin' Texas|Ella Langley":["65DbTqJKhbwqYbZ1Okr0rc",232226],"Take Me Home, Country Roads|John Denver":["1YYhDizHx7PnDhAhko6cDS",193937],"Jolene|Dolly Parton":["2SpEHTbUuebeLkgs9QB7Ue",163275],"9 to 5|Dolly Parton":["4w3tQBXhn5345eUXDGBWZG",166749],"Texas Hold 'Em|Beyoncé":["7cPPeSxJ1VNAzUFH3Ms4Tm",233456],"Old Town Road (Remix)|Lil Nas X ft. Billy Ray Cyrus":["2YpeDb67231RjR0MgVLzsG",157066],"A Bar Song (Tipsy)|Shaboozey":["7wd9kz7UXhJr8pgdqpzKu5",171291],"Boot Scootin' Boogie|Brooks & Dunn":["6iKWr2XH1DyT7TQzDZlvzd",197640],"The Good, the Bad and the Ugly|Ennio Morricone":["2IJJszwGK4NWmh3bNK6CPD",162386],"Cotton Eye Joe|Rednex":["0Jg602cHeMCnPez9baacIe",193826],"Happy Trails|Roy Rogers":["5b0YtDfsUHz5NOiErLCIK7",135640],"The Fate of Ophelia|Taylor Swift":["53iuhJlwXhSER5J2IYYv1W",0],"Swim|BTS":["68lbSrXDORS51pmyjZv712",0],"Opalite|Taylor Swift":["3yWuTOYDztXjZxdE2cIRUa",0],"REDRED|CORTIS":["2fCwv2ppU5nTRTckomIGsd",0],"Hate That I Made You Love Me|Ariana Grande":["20jbSiX29FDX4oQxBXyUEi",0],"Mojito|周杰倫":["1xYzwZnPW3sTeok6NkWZsg",0],"粉色海洋|周杰倫":["2PEm4ZfvupUu0zd5gfLqRt",0],"聖誕星|周杰倫 ft. 楊瑞代":["6IHerlmqWsMK5pfEGMBnAY",0],"Golden|HUNTR/X（KPop Demon Hunters）":["1CPZ5BxNNd0n0nF4Orb9JS",0],"Soda Pop|Saja Boys（KPop Demon Hunters）":["02sy7FAs8dkDNYsHp4Ul3f",0],"How Sweet|NewJeans":["38tXZcL1gZRfbqfOG0VMTH",0],"Magnetic|ILLIT":["1aKvZDoLGkNMxoRYgkckZG",0],"Supernova|aespa":["18nZWRpJIHzgb1SQr4ncwb",0],"Seven (Clean)|Jung Kook ft. Latto":["7Hcj0duTWiCSYDtJaztNIt",0],"Super Shy|NewJeans":["5sdQOyqq2IDhvmx2lHOpwd",0],"Ditto|NewJeans":["3r8RuvgbX9s7ammBn07D3W",0],"Dynamite|BTS":["0t1kP63rueHleOhQkYSXFY",0],"Hype Boy|NewJeans":["0a4MMyCrzT0En247IhqZbD",0],"Butter|BTS":["2bgTY4UwhfBYhGT4HUYStN",0],"Feel Special|TWICE":["3Hz3tTQwOdM6XkA0ALB2G9",0],"Permission to Dance|BTS":["3XYRV7ZSHqIRDG87DKTtry",0],"Espresso|Sabrina Carpenter":["2qSkIjg1o9h3YT9RAgYN75",0],"Birds of a Feather|Billie Eilish":["6dOtVTDdiauQNBQEDOtlAB",0],"Cruel Summer|Taylor Swift":["1BxfuPKGuaTgP7aM0Bbdwr",0],"Blinding Lights|The Weeknd":["0VjIjW4GlUZAMYd2vXMi3b",0],"Until I Found You|Stephen Sanchez":["0T5iIrXA4p5GsubkhuBIKV",0],"Sunflower|Post Malone & Swae Lee":["3KkXRkHbMCARz0aVfEt68P",0],"Die With A Smile|Lady Gaga & Bruno Mars":["2plbrEY59IikOBgBGLjaoe",0],"孤勇者|陳奕迅":["6akVETVeqqPVvuBS5e0EB1",0],"Believer|Imagine Dragons":["0pqnGHJpmpxLKifKRmU6WP",0],"Whatever It Takes|Imagine Dragons":["6Qn5zhYkTa37e91HC1D7lb",0],"Lover|Taylor Swift":["1dGr1c8CrMLDpV6mPbImSI",0],"Banana Pancakes|Jack Johnson":["451GvHwY99NKV4zdKPRWmv",0],"Best Day of My Life|American Authors":["5Hroj5K7vLpIG4FNCRIjbP",0],"Lean On|Major Lazer & DJ Snake":["2YWjW3wwQIBLNhxWKBQd16",0],"Wake Me Up|Avicii":["0nrRP2bk19rLc0orkWPQk2",0],"Levels|Avicii":["5UqCQaDshqbIk3pkhy4Pjg",0],"I Gotta Feeling|Black Eyed Peas":["2H1047e0oMSj10dgp7p2VG",0],"Party Rock Anthem|LMFAO":["7mitXLIMCflkhZiD34uEQI",0],"江南Style|PSY":["03UrZgTINDqvnUMbbIMhql",0],"How You Like That|BLACKPINK":["1kZ9du9IUooVxWs0wSOfcT",0],"Kill This Love|BLACKPINK":["6hvczQ05jc1yGlp9zhb95V",0],"Fancy|TWICE":["2qQpFbqqkLOGySgNK8wBXt",0],"Whiplash|aespa":["3coRPMnFg2dJcPu5RMloa9",0],"ANTIFRAGILE|LE SSERAFIM":["4fsQ0K37TOXa3hEQfjEic1",0],"God's Menu|Stray Kids":["4XPXrcpyNr30Km6aPiflJy",0],"MIC Drop (Steve Aoki Remix)|BTS":["6XxpvCj3eLWs3lYowSgC4G",0],"Pink Venom|BLACKPINK":["0skYUMpS0AcbpjcGsAbRGj",0],"Smart|LE SSERAFIM":["4lR8sYGMGZPvthF2yUfo7T",0],"Closing Time|Semisonic":["1A5V1sxyCLpKJezp75tUXn",0],"Fly Me to the Moon|Frank Sinatra":["2dR5WkrpwylTuT3jRWNufa",0],"Ain't That a Kick in the Head|Dean Martin":["7fQ3PYTYdu208fQ3JEm2U7",0],"L-O-V-E|Nat King Cole":["4QxDOjgpYtQDxxbWPuEJOy",0],"Luck Be a Lady|Frank Sinatra":["3AgY5gLURlcdYBVGv1RVm7",0],"Cheek to Cheek|Ella Fitzgerald & Louis Armstrong":["5TNpCThzzXHEipXGKgNG8T",0],"What a Wonderful World|Louis Armstrong":["29U7stRjqHU6rMiS8BfaI9",0],"Poker Face|Lady Gaga":["1QV6tiMFM6fSOKOGLMHYYg",0],"Money, Money, Money|ABBA":["29FNeqjOV2kPWGS55qhtGB",0],"Price Tag|Jessie J ft. B.o.B":["0cT0iBuwEyRoGlz5T62Hzp",0],"The Gambler|Kenny Rogers":["5KqldkCunQ2rWxruMEtGh0",0],"My Way|Frank Sinatra":["3spdoTYpuCpmq19tuD0bOe",0],"Wagon Wheel|Darius Rucker":["3xdjjKMcMOFgo1eQrfbogM",0],"Man! I Feel Like a Woman!|Shania Twain":["6sxptembJVty4sNtcPMAVz",0],"Life Is a Highway|Rascal Flatts":["2Fs18NaCDuluPG1DHGw1XG",0],"Love Story|Taylor Swift":["1vrd6UOGamcKNGnSHJQlSt",0],"You Belong with Me|Taylor Swift":["3GCL1PydwsLodcpv0Ll1ch",0],"Last Night|Morgan Wallen":["59uQI0PADDKeE6UZDTJEe8",0],"I Had Some Help|Post Malone ft. Morgan Wallen":["7221xIgOnuakPdLqT0F3nP",0],"Achy Breaky Heart|Billy Ray Cyrus":["2EoIt9vdgFRNW03u5IvFsQ",0],"Tennessee Whiskey|Chris Stapleton":["3fqwjXwUGN6vbzIwvyFMhx",0],"牛仔很忙|周杰倫":["4LwunOVm22krulsHhuc9zK",0]};
+const SC=[
+ {k:'warm',n:'暖場',c:'var(--warm)',tip:'賓客入座、講座開始前。分 2026 熱門、中文、KPOP、英文，都只挑輕快正向的歌，不放苦情歌，音量放在聊天聲之下。開場前 1 分鐘按淡出。'},
+ {k:'enter',n:'進場',c:'var(--enter)',tip:'講師、長官或得獎人上台。前奏就要有氣勢，20–40 秒，人走到定位就淡出。'},
+ {k:'talk',n:'討論・填表',c:'var(--talk)',tip:'寫表單、小組討論時的背景音樂。全部是沒有歌詞的純音樂，一份就有好幾個小時，按一次會一直接著播。填表要安靜選鋼琴或 Deep Focus；小組討論選有點律動的爵士或 Bossa Nova，剛好蓋過隔壁組的說話聲。'},
+ {k:'mid',n:'中場',c:'var(--mid)',tip:'用餐、休息、講座中場。大家耳熟、正向的歌，可以整首也可以只放副歌。'},
+ {k:'award',n:'頒獎',c:'var(--award)',tip:'都是 4/4 拍、鼓點清楚的歌。約 120 BPM 以下每一拍都拍；更快的拍在第 2、4 拍，掌聲才不會亂。唸到名字就下，上台合照完淡出。'},
+ {k:'photo',n:'拍照',c:'var(--photo)',tip:'大合照、拍照時間。明亮會讓人想笑的歌，用片段，每組 30–60 秒。'},
+ {k:'end',n:'散場',c:'var(--end)',tip:'活動結束、送客。溫暖有感謝感，整首放，最後一首可以拉長淡出。'}];
+const WARM={
+band:{n:'台灣樂團',s:[['萬事大吉','理想混蛋','3:10'],['秘密基地','MORE BE US','3:30'],['Hey Girl','小男孩樂團','3:51'],['天使也會受傷','小男孩樂團','4:50'],['接住你','理想混蛋','5:10'],['美好的事可不可以發生在我身上','康士坦的變化球','4:20'],['散步歌','MORE BE US','3:30'],['帶我去找夜生活','告五人','4:00'],['不是因為天氣晴朗才愛你','理想混蛋','4:01'],['一起去跑步','宇宙人','3:50'],['Goodbye My Friend','小男孩樂團','3:52'],['頑固','五月天','4:30'],['祝你生日快樂','理想混蛋','4:07']]},
+n26:{n:'2026 輕快熱門',s:[['Love Options','BESTie','3:20'],['GiiiRIP','BIGBANG','2:44'],['NEON (w/ A2O LITE)','A2O','3:00'],['艾薇塔 Evita','艾薇 Ivy','3:26'],['沒人喜歡你 那又怎樣','艾薇 Ivy','3:30'],['I Just Might','Bruno Mars','3:33'],['LOVE ATTACK','RESCENE','3:02'],['Opalite','Taylor Swift','3:55'],['BANG BANG','IVE','2:58'],['Swim','BTS','3:00'],['春风来到我Kampung','DIOR 大穎','3:15'],['REDRED','CORTIS','3:00'],['The Fate of Ophelia','Taylor Swift','3:46'],['BiiiG','BIGBANG','3:30'],['Golden','HUNTR/X（KPop Demon Hunters）','3:14'],['Soda Pop','Saja Boys（KPop Demon Hunters）','2:30'],['APT.','ROSÉ & Bruno Mars','2:49']]},
+zh:{n:'中文',s:[['萬事大吉','理想混蛋','3:10'],['早安晨之美','盧廣仲','3:57'],['派對動物','五月天','4:00'],['Mojito','周杰倫','3:05'],['帶我去找夜生活','告五人','4:00'],['怪美的','蔡依林','3:30'],['粉色海洋','周杰倫','3:20'],['頑固','五月天','4:30'],['一起去跑步','宇宙人','3:50'],['大藝術家','蔡依林','3:18'],['來個蹦蹦','玖壹壹','3:30'],['春风来到我Kampung','DIOR 大穎','3:15'],['大展鴻圖','攬佬SKAI ISYOURGOD & AR刘夫阳','4:10'],['聖誕星','周杰倫 ft. 楊瑞代','3:30']]},
+kp:{n:'KPOP',s:[['GiiiRIP','BIGBANG','2:44'],['Golden','HUNTR/X（KPop Demon Hunters）','3:14'],['LOVE ATTACK','RESCENE','3:02'],['APT.','ROSÉ & Bruno Mars','2:49'],['Soda Pop','Saja Boys（KPop Demon Hunters）','2:30'],['BANG BANG','IVE','2:58'],['How Sweet','NewJeans','3:39'],['Magnetic','ILLIT','2:40'],['Supernova','aespa','2:58'],['Super Shy','NewJeans','2:34'],['I AM','IVE','3:04'],['Dynamite','BTS','3:19'],['Celebrity','IU','3:15'],['LOVE DIVE','IVE','2:57'],['Hype Boy','NewJeans','2:59'],['Butter','BTS','2:44'],['Feel Special','TWICE','3:27'],['Permission to Dance','BTS','3:07']]},
+iv:{n:'艾薇・清新治癒',s:[['接住你','理想混蛋','5:10'],['不是因為天氣晴朗才愛你','理想混蛋','4:01'],['艾薇塔 Evita','艾薇 Ivy','3:26'],['沒人喜歡你 那又怎樣','艾薇 Ivy','3:30'],['速成戀愛','艾薇 Ivy','3:18'],['請你停一停','艾薇 Ivy','3:33'],['不愛就不愛','艾薇 Ivy','3:17'],['Cool With That','艾薇 Ivy','3:30'],['早安晨之美','盧廣仲','3:57'],['暫停','艾薇 Ivy','3:40'],['100種生活','盧廣仲','3:40'],['美好的事可不可以發生在我身上','康士坦的變化球','4:20'],['心碎復健中','艾薇 Ivy','3:40'],['寶貝 (In a Day)','張懸','3:10'],['太陽與地球','盧廣仲','3:30'],['烏雲日記','艾薇 Ivy','3:40'],['華麗的冒險','陳綺貞','4:00'],['一起去跑步','宇宙人','3:50'],['帶我去找夜生活','告五人','4:00'],['一路順風','盧廣仲','4:00']]},
+sr:{n:'中文 Slow Rock',s:[['頑固','五月天','4:30'],['美好的事可不可以發生在我身上','康士坦的變化球','4:20'],['白鴿','伍佰 & China Blue','4:40'],['倔強','五月天','4:20'],['無與倫比的美麗','蘇打綠','5:06'],['好好','五月天','4:30'],['突然的自我','伍佰 & China Blue','4:30']]},
+en:{n:'英文',s:[['Espresso','Sabrina Carpenter','2:55'],['I Just Might','Bruno Mars','3:33'],['Dance The Night','Dua Lipa','2:56'],['Can\'t Stop the Feeling!','Justin Timberlake','3:56'],['Levitating','Dua Lipa','3:23'],['As It Was','Harry Styles','2:47'],['Happy','Pharrell Williams','3:53'],['Sunroof','Nicky Youre & dazy','2:43'],['Watermelon Sugar','Harry Styles','2:54'],['Houdini','Dua Lipa','3:05'],['Uptown Funk','Mark Ronson ft. Bruno Mars','4:30'],['Cruel Summer','Taylor Swift','2:58'],['Best Day of My Life','American Authors','3:14'],['Don\'t Start Now','Dua Lipa','3:03'],['Blinding Lights','The Weeknd','3:20'],['Shape of You','Ed Sheeran','3:53'],['It\'s Beginning to Look a Lot Like Christmas','Michael Bublé','3:26'],['All I Want for Christmas Is You','Mariah Carey','4:01']]}};
+const LIB={
+enter:[['NEON (w/ A2O LITE)','A2O','片段','Spotify 台灣榜前段的新歌，主題是自信做自己，先試聽挑段落'],['One Of A Kind','G-DRAGON','片段','「獨一無二」的自信宣言，業務冠軍登場'],['艾薇塔 Evita','艾薇 Ivy','片段','2026 傳說對決英雄主題曲，女主管或得獎人登場，先試聽挑段落'],['GiiiRIP','BIGBANG','片段','11 月剛發行，Spotify 台灣 Top 50 新歌，先試聽挑段落'],['BANG BANG','IVE','片段','2026 Melon 長紅冠軍，副歌約 30 秒，先試聽'],['The Greatest Show','Hugh Jackman（大娛樂家）','片段','開頭鼓聲加群眾踏步，講師或長官進場很有排場，約 40 秒'],['Golden','HUNTR/X（KPop Demon Hunters）','片段','2025 最紅的登場歌，副歌約 30 秒'],['孤勇者','陳奕迅','片段','副歌氣勢強，得獎人或講師登場'],['Believer','Imagine Dragons','片段','鼓點重，第一次副歌前後約 30 秒'],['Whatever It Takes','Imagine Dragons','片段','衝勁足，業務主管登場，約 30 秒']],
+mid:[['Love Options','BESTie','整首','Spotify 台灣每日榜第一，復古舞曲很俏皮'],['Hands Up','BIGBANG','片段','派對嗨歌，帶全場舉手'],['GiiiRIP','BIGBANG','整首','11 月新歌，年輕同仁一定知道'],['I Just Might','Bruno Mars','整首','2026 年初美國冠軍單曲，先試聽'],['LOVE ATTACK','RESCENE','片段','2026 夏天 Melon 連 9 週冠軍，先試聽'],['Espresso','Sabrina Carpenter','整首','近年最紅的輕快歌，用餐時剛好'],['Mojito','周杰倫','整首','拉丁輕快，大家都會哼'],['APT.','ROSÉ & Bruno Mars','片段','副歌一出全場都懂，約 30 秒'],['Soda Pop','Saja Boys（KPop Demon Hunters）','整首','年輕同仁會尖叫'],['帶我去找夜生活','告五人','整首','輕鬆有律動'],['Uptown Funk','Mark Ronson ft. Bruno Mars','整首','永遠不退流行的炒氣氛歌']],
+award:[['Espresso','Sabrina Carpenter','片段','鼓點清楚又時髦，副歌約 30 秒','4/4・約 104 BPM・每拍都拍'],['Dance The Night','Dua Lipa','片段','迪斯可鼓，掌聲很好跟','4/4・約 110 BPM・每拍都拍'],['Dynamite','BTS','片段','正向明亮，副歌約 30 秒','4/4・約 114 BPM・每拍都拍'],['Can\'t Stop the Feeling!','Justin Timberlake','片段','正向明亮，副歌約 30 秒','4/4・約 113 BPM・每拍都拍'],['Uptown Funk','Mark Ronson ft. Bruno Mars','片段','用「Don\'t believe me just watch」那段','4/4・約 115 BPM・每拍都拍'],['Golden','HUNTR/X（KPop Demon Hunters）','片段','大獎得主，氣勢最滿','4/4・中快・拍第 2、4 拍'],['APT.','ROSÉ & Bruno Mars','片段','歌裡就有拍手的節奏','4/4・約 149 BPM・拍第 2、4 拍'],['萬事大吉','理想混蛋','片段','理想混蛋 2025 單曲，名字就很吉利，業績獎正好','4/4・中快・每拍都拍'],['幸福在歌唱','A-Lin','片段','金曲年度歌曲，溫暖勵志；不是拍手歌，留給大獎得主上台或致詞後的感性時刻','抒情・不拍手'],['派對動物','五月天','片段','中文款，副歌全場會跳會拍','4/4・快・拍第 2、4 拍'],['大展鴻圖','攬佬SKAI ISYOURGOD & AR刘夫阳','片段','業績獎最切題，氣勢浮誇','4/4・中速・每拍都拍'],['孤勇者','陳奕迅','片段','年度大獎，副歌氣勢最強','4/4・中速・副歌每拍都拍']],
+photo:[['每天情人節','PIZZALI','片段','明亮甜蜜，拍照很有笑容'],['Lollipop','2NE1 & BIGBANG','片段','可愛輕快的經典'],['祝你生日快樂','理想混蛋','片段','有人慶生、切蛋糕、拍照時用，比傳統生日歌好聽'],['粉色海洋','周杰倫','片段','輕快明亮，30–60 秒'],['Magnetic','ILLIT','片段','可愛會讓人笑'],['How Sweet','NewJeans','片段','清新拍照款'],['Sunroof','Nicky Youre & dazy','片段','陽光感'],['Happy','Pharrell Williams','片段','一聽就笑，拍照最好用']],
+end:[['乾杯','五月天','整首','敬大家一年辛苦'],['Goodbye My Friend','小男孩樂團','整首','珍重道別、期待再見，送客剛好'],['接住你','理想混蛋','整首','寫給職場低潮的朋友，業務團隊聽了特別有感'],['好好','五月天','整首','溫暖、有感謝感'],['頑固','五月天','整首','勵志收尾，大家會跟著唱'],['Count on Me','Bruno Mars','整首','團隊感的英文收尾'],['聖誕星','周杰倫 ft. 楊瑞代','整首','12 月場次的收尾']]};
+const THEMES=[
+{k:'std',n:'講座・表揚',d:'正式、正向，長官和講師都在場。音量保守，選大家耳熟、歌詞乾淨的歌。',warm:{},lib:{}},
+{k:'cny',n:'春酒・尾牙',d:'喜氣熱鬧，長輩多。新年歌和台語金曲最有共鳴，中場可以放開來嗨。',
+ warm:{ny:{n:'新年歌',s:[['恭喜發財','劉德華','3:50'],['好運來','祖海','4:20'],['恭喜恭喜','鄧麗君','2:40'],['迎春花','鄧麗君','3:10'],['春風吻上我的臉','鄧麗君','3:00'],['喜洋洋','國樂','3:00'],['步步高','國樂','2:40'],['金蛇狂舞','國樂','2:30'],['春節序曲','國樂','4:30']]},
+  tw:{n:'尾牙熱門',s:[['春风来到我Kampung','DIOR 大穎','3:15'],['大展鴻圖','攬佬SKAI ISYOURGOD & AR刘夫阳','4:10'],['來個蹦蹦','玖壹壹','3:30'],['派對動物','五月天','4:00'],['帶我去找夜生活','告五人','4:00'],['大藝術家','蔡依林','3:18'],['怪美的','蔡依林','3:30'],['Mojito','周杰倫','3:05'],['頑固','五月天','4:30'],['APT.','ROSÉ & Bruno Mars','2:49'],['姊姊','謝金燕','3:40']]}},
+ lib:{enter:[['春節序曲','國樂','片段','開頭鑼鼓最有過年氣勢，約 30 秒'],['金蛇狂舞','國樂','片段','節奏緊湊，長官上台約 20–30 秒'],['大展鴻圖','攬佬SKAI ISYOURGOD & AR刘夫阳','片段','洗腦饒舌，業績長紅的氣勢，前奏到第一段'],['恭喜發財','劉德華','片段','前奏一下就知道是春酒']],
+  mid:[['來個蹦蹦','玖壹壹','片段','近年尾牙必放，副歌約 40 秒'],['派對動物','五月天','片段','副歌全場跳'],['帶我去找夜生活','告五人','整首','輕鬆有律動'],['大藝術家','蔡依林','片段','節奏感強，遊戲時間'],['姊姊','謝金燕','片段','尾牙老梗但永遠有效，副歌就好'],['APT.','ROSÉ & Bruno Mars','片段','年輕同仁秒懂']],
+  award:[['萬事大吉','理想混蛋','片段','名字就是過年賀詞，抽獎頒獎都好用','4/4・中快・每拍都拍'],['好運來','祖海','片段','喜氣又好拍，抽獎頒獎都適合','4/4・中速・每拍都拍'],['恭喜發財','劉德華','片段','副歌約 30 秒','4/4・中快・每拍都拍'],['大展鴻圖','攬佬SKAI ISYOURGOD & AR刘夫阳','片段','業績表揚最切題','4/4・中速・每拍都拍'],['來個蹦蹦','玖壹壹','片段','熱鬧台味，抽獎好用','4/4・中快・每拍都拍'],['步步高','國樂','片段','國樂快板，抽大獎很有氣氛','2/4・快・每拍都拍'],['喜洋洋','國樂','片段','輕快喜氣，小獎項連續頒','2/4・中快・每拍都拍']],
+  end:[['乾杯','五月天','整首','敬大家一年辛苦'],['好好','五月天','整首','溫暖收尾'],['頑固','五月天','整首','勵志大合唱'],['春风来到我Kampung','DIOR 大穎','整首','2026 新年歌，喜氣送客']]}},
+{k:'tea',n:'迎新茶會',d:'輕鬆、清新、像咖啡館。暖場用木吉他，破冰遊戲再拉高。',
+ warm:{ac:{n:'茶會清新',s:[['Sunroof','Nicky Youre & dazy','2:43'],['早安晨之美','盧廣仲','3:57'],['Banana Pancakes','Jack Johnson','3:12'],['How Sweet','NewJeans','3:39'],['一起去跑步','宇宙人','3:50'],['Best Day of My Life','American Authors','3:14'],['Magnetic','ILLIT','2:40'],['粉色海洋','周杰倫','3:20'],['Count on Me','Bruno Mars','3:17'],['帶我去找夜生活','告五人','4:00'],['Happy','Pharrell Williams','3:53'],['Mojito','周杰倫','3:05'],['Can\'t Stop the Feeling!','Justin Timberlake','3:56']]}},
+ lib:{enter:[['Sunroof','Nicky Youre & dazy','片段','新人一個個進場，明亮不吵，約 30 秒'],['Can\'t Stop the Feeling!','Justin Timberlake','片段','輕快有朝氣，副歌約 30 秒'],['Golden','HUNTR/X（KPop Demon Hunters）','片段','新人代表上台'],['Best Day of My Life','American Authors','片段','踏地拍手，新人一起出場']],
+  mid:[['Espresso','Sabrina Carpenter','整首','破冰遊戲背景'],['Soda Pop','Saja Boys（KPop Demon Hunters）','整首','年輕新人會跟唱'],['Mojito','周杰倫','整首','輕鬆聊天'],['APT.','ROSÉ & Bruno Mars','片段','遊戲倒數用副歌'],['Can\'t Stop the Feeling!','Justin Timberlake','整首','輕快正向']],
+  end:[['Count on Me','Bruno Mars','整首','「有事找我」的團隊感'],['頑固','五月天','整首','歡迎加入的勵志感'],['好好','五月天','整首','歡迎加入的溫度']]}},
+{k:'club',n:'夜店派對',d:'燈暗、節奏不斷。電子舞曲多在 120–130 BPM，曲子之間用淡入淡出接。',
+ warm:{cen:{n:'Club 英文',s:[['Don\'t Start Now','Dua Lipa','3:03'],['One Kiss','Calvin Harris & Dua Lipa','3:34'],['Summer','Calvin Harris','3:43'],['Lean On','Major Lazer & DJ Snake','2:56'],['Cheap Thrills','Sia','3:31'],['Closer','The Chainsmokers','4:05'],['Something Just Like This','The Chainsmokers & Coldplay','4:07'],['Wake Me Up','Avicii','4:07'],['Levels','Avicii','3:19'],['Titanium','David Guetta ft. Sia','4:05'],['Animals','Martin Garrix','3:12'],['Don\'t You Worry Child','Swedish House Mafia','3:32'],['Houdini','Dua Lipa','3:05'],['Padam Padam','Kylie Minogue','2:46'],['I Gotta Feeling','Black Eyed Peas','4:49'],['Party Rock Anthem','LMFAO','4:23']]},
+  ckp:{n:'KPOP 派對',s:[['GiiiRIP','BIGBANG','2:44'],['Hands Up','BIGBANG','3:57'],['Crayon','G-DRAGON','3:17'],['江南Style','PSY','3:39'],['Fantastic Baby','BIGBANG','3:52'],['DDU-DU DDU-DU','BLACKPINK','3:29'],['How You Like That','BLACKPINK','3:01'],['Kill This Love','BLACKPINK','3:11'],['Fancy','TWICE','3:34'],['Next Level','aespa','3:41'],['Supernova','aespa','2:58'],['Whiplash','aespa','3:03'],['ANTIFRAGILE','LE SSERAFIM','3:04'],['God\'s Menu','Stray Kids','3:00'],['MIC Drop (Steve Aoki Remix)','BTS','3:58'],['Pink Venom','BLACKPINK','3:06'],['Love Shot','EXO','3:20'],['Magnetic','ILLIT','2:40'],['Smart','LE SSERAFIM','2:38']]},
+  czh:{n:'中文舞曲',s:[['舞孃','蔡依林','3:55'],['大藝術家','蔡依林','3:40'],['怪美的','蔡依林','3:30'],['三天三夜','張惠妹','4:15'],['BAD BOY','張惠妹','4:00'],['帶我去找夜生活','告五人','4:00'],['來個蹦蹦','玖壹壹','3:30'],['派對動物','五月天','4:00'],['練舞功','謝金燕','3:50'],['姊姊','謝金燕','3:40'],['愛你','王心凌','3:40']]}},
+ lib:{enter:[['Levels','Avicii','片段','build-up 到 drop 約 30 秒，drop 那一下人亮相'],['Animals','Martin Garrix','片段','drop 很重，主持人登場'],['Fantastic Baby','BIGBANG','片段','「Boom shakalaka」一出全場知道'],['Kill This Love','BLACKPINK','片段','銅管前奏有氣勢，約 20 秒'],['江南Style','PSY','片段','歡樂系登場，大家會跟著跳']],
+  mid:[['Party Rock Anthem','LMFAO','整首','舞池暖起來'],['I Gotta Feeling','Black Eyed Peas','整首','派對感最滿'],['江南Style','PSY','片段','全場跟跳'],['練舞功','謝金燕','片段','中文舞曲帶動'],['Soda Pop','Saja Boys（KPop Demon Hunters）','整首','KPOP 跟唱']],
+  award:[['Lean On','Major Lazer & DJ Snake','片段','節奏慢一點，掌聲好跟','4/4・約 98 BPM・每拍都拍'],['One Kiss','Calvin Harris & Dua Lipa','片段','House 律動，副歌約 30 秒','4/4・約 124 BPM・拍第 2、4 拍'],['I Gotta Feeling','Black Eyed Peas','片段','「Tonight\'s gonna be a good night」','4/4・約 128 BPM・拍第 2、4 拍'],['Don\'t You Worry Child','Swedish House Mafia','片段','大獎得主上台','4/4・約 129 BPM・拍第 2、4 拍'],['Party Rock Anthem','LMFAO','片段','輕鬆趣味獎','4/4・約 130 BPM・拍第 2、4 拍'],['江南Style','PSY','片段','全場一起騎馬拍手','4/4・約 132 BPM・拍第 2、4 拍']],
+  photo:[['Cheap Thrills','Sia','片段','輕快好拍照'],['One Kiss','Calvin Harris & Dua Lipa','片段','律動感，30–60 秒'],['Fancy','TWICE','片段','KPOP 拍照款']],
+  end:[['Wake Me Up','Avicii','整首','收尾有餘韻'],['Don\'t You Worry Child','Swedish House Mafia','整首','溫暖的最後一首'],['Closing Time','Semisonic','整首','歌名就是「散場時間」']]}},
+{k:'casino',n:'撲克・賭場之夜',d:'拉斯維加斯和 007 的感覺。暖場放爵士 Lounge，揭牌和頒獎用銅管和鼓。',
+ warm:{lg:{n:'Vegas Lounge',s:[['Fly Me to the Moon','Frank Sinatra','2:28'],['Sway','Michael Bublé','3:08'],['The Way You Look Tonight','Frank Sinatra','3:22'],['Beyond the Sea','Bobby Darin','2:52'],['Feeling Good','Michael Bublé','3:57'],['Ain\'t That a Kick in the Head','Dean Martin','2:27'],['L-O-V-E','Nat King Cole','2:34'],['Luck Be a Lady','Frank Sinatra','5:15'],['Mack the Knife','Bobby Darin','3:04'],['Everybody Loves Somebody','Dean Martin','2:42'],['Valerie','Mark Ronson ft. Amy Winehouse','3:39'],['Moondance','Van Morrison','4:32'],['Haven\'t Met You Yet','Michael Bublé','4:05'],['Viva Las Vegas','Elvis Presley','2:22'],['Cheek to Cheek','Ella Fitzgerald & Louis Armstrong','5:53'],['What a Wonderful World','Louis Armstrong','2:17']]}},
+ lib:{enter:[['James Bond Theme','John Barry','片段','007 吉他一下，荷官或主持人登場，約 20 秒'],['Feeling Good','Michael Bublé','片段','清唱接銅管爆開那一刻進場'],['24K Magic','Bruno Mars','片段','前奏就很華麗，約 30 秒'],['Viva Las Vegas','Elvis Presley','片段','賭城主題一聽就懂']],
+  mid:[['Poker Face','Lady Gaga','整首','打牌主題必放'],['Billionaire','Travie McCoy ft. Bruno Mars','整首','輕鬆談錢'],['Money, Money, Money','ABBA','整首','復古又切題'],['Price Tag','Jessie J ft. B.o.B','整首','輕快好聽'],['Valerie','Mark Ronson ft. Amy Winehouse','整首','復古靈魂樂']],
+  award:[['24K Magic','Bruno Mars','片段','金光閃閃的頒獎感','4/4・約 107 BPM・每拍都拍'],['Uptown Funk','Mark Ronson ft. Bruno Mars','片段','「Don\'t believe me just watch」','4/4・約 115 BPM・每拍都拍'],['Poker Face','Lady Gaga','片段','打牌冠軍上台','4/4・約 120 BPM・每拍都拍'],['Viva Las Vegas','Elvis Presley','片段','節奏快、氣氛熱','4/4・快・拍第 2、4 拍'],['Sing, Sing, Sing','Benny Goodman','片段','用開頭的鼓，揭曉前最有張力','4/4 搖擺・很快・拍第 2、4 拍']],
+  photo:[['Valerie','Mark Ronson ft. Amy Winehouse','片段','復古、會讓人笑'],['Sway','Michael Bublé','片段','優雅拍照時間']],
+  end:[['The Gambler','Kenny Rogers','整首','「知道何時該收牌」，散場剛好'],['My Way','Frank Sinatra','整首','有氣度的收尾'],['Fly Me to the Moon','Frank Sinatra','整首','輕鬆送客']]}},
+{k:'west',n:'牛仔風',d:'鄉村音樂、靴子和排舞。中場放排舞歌最好帶動，頒獎拍手很自然。',
+ warm:{ct:{n:'鄉村 Country',s:[['Choosin\' Texas','Ella Langley','3:30'],['Take Me Home, Country Roads','John Denver','3:10'],['Jolene','Dolly Parton','2:42'],['9 to 5','Dolly Parton','2:45'],['Wagon Wheel','Darius Rucker','4:58'],['Man! I Feel Like a Woman!','Shania Twain','3:53'],['Life Is a Highway','Rascal Flatts','4:36'],['Love Story','Taylor Swift','3:55'],['You Belong with Me','Taylor Swift','3:51'],['Texas Hold \'Em','Beyoncé','3:55'],['Old Town Road (Remix)','Lil Nas X ft. Billy Ray Cyrus','2:37'],['A Bar Song (Tipsy)','Shaboozey','2:51'],['Last Night','Morgan Wallen','2:43'],['I Had Some Help','Post Malone ft. Morgan Wallen','2:58'],['Achy Breaky Heart','Billy Ray Cyrus','3:23'],['Boot Scootin\' Boogie','Brooks & Dunn','3:20'],['Friends in Low Places','Garth Brooks','4:27'],['Tennessee Whiskey','Chris Stapleton','4:53'],['牛仔很忙','周杰倫','2:41']]}},
+ lib:{enter:[['The Good, the Bad and the Ugly','Ennio Morricone','片段','西部片口哨，主持人登場 15–20 秒'],['Old Town Road (Remix)','Lil Nas X ft. Billy Ray Cyrus','片段','前奏 banjo 一下就有牛仔感'],['牛仔很忙','周杰倫','片段','中文牛仔歌，前奏到第一段'],['Life Is a Highway','Rascal Flatts','片段','有衝勁，約 30 秒']],
+  mid:[['Choosin\' Texas','Ella Langley','整首','2026 美國榜冠軍 24 週的鄉村歌，牛仔場必放'],['Cotton Eye Joe','Rednex','片段','排舞帶動第一首'],['A Bar Song (Tipsy)','Shaboozey','整首','2024 最紅的排舞歌'],['Boot Scootin\' Boogie','Brooks & Dunn','整首','排舞進階'],['Texas Hold \'Em','Beyoncé','整首','又牛仔又撲克'],['牛仔很忙','周杰倫','整首','中文觀眾會跟著唱']],
+  award:[['9 to 5','Dolly Parton','片段','上班族主題剛好','4/4・約 107 BPM・每拍都拍'],['Life Is a Highway','Rascal Flatts','片段','副歌約 30 秒','4/4・約 103 BPM・每拍都拍'],['Texas Hold \'Em','Beyoncé','片段','拍手聲本來就在歌裡','4/4・約 110 BPM・每拍都拍'],['Man! I Feel Like a Woman!','Shania Twain','片段','女性得獎者上台','4/4・約 125 BPM・拍第 2、4 拍'],['Cotton Eye Joe','Rednex','片段','最熱鬧的大獎','4/4・約 132 BPM・拍第 2、4 拍'],['牛仔很忙','周杰倫','片段','中文款','4/4・中快・每拍都拍']],
+  photo:[['You Belong with Me','Taylor Swift','片段','輕快甜'],['Take Me Home, Country Roads','John Denver','片段','大合照會一起唱']],
+  end:[['Take Me Home, Country Roads','John Denver','整首','全場合唱收尾'],['Happy Trails','Roy Rogers','整首','牛仔的道別歌'],['Wagon Wheel','Darius Rucker','整首','輕鬆送客']]}}];
+const secs=d=>{const p=d.split(':');return +p[0]*60+ +p[1]};
+const durOf=r=>{const x=SPID[r[0]+'|'+r[1]];return x&&x[1]?Math.round(x[1]/1000):secs(r[2])};
+const total=(k,W=WARM)=>W[k].s.reduce((a,r)=>a+durOf(r),0);
+const EX=[['warm','暖場歌單・中文',WARM.zh.s.length+' 首・約 '+Math.round(total('zh')/60)+' 分',0,null,3,8],['enter','The Greatest Show','Hugh Jackman（大娛樂家）',0,40,0,4],['talk','Jazz in the Background','Spotify 歌單・小組討論',0,null,0,0],['mid','Uptown Funk','Mark Ronson ft. Bruno Mars',0,null,0,5],['award','Espresso','Sabrina Carpenter',0,45,0,3],['award','派對動物','五月天',0,45,0,3],['photo','粉色海洋','周杰倫',40,90,2,4],['end','乾杯','五月天',0,null,0,8]];
+const sc=k=>SC.find(s=>s.k===k);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=t=>{if(t==null||!isFinite(t))return '結尾';t=Math.max(0,t);const m=Math.floor(t/60),s=Math.floor(t%60);return m+':'+String(s).padStart(2,'0')};
+const parse=v=>{v=String(v).trim();if(!v||v==='結尾')return null;const p=v.split(':').map(Number);if(p.some(isNaN))return undefined;return p.length>1?p[0]*60+p[1]:p[0]};
+let uid=Date.now();
+const mk=(s,t,a,i,o,fi,fo)=>({id:'c'+(uid++),scene:s,t,a,in:i,out:o,fi,fo});
+let cues;
+try{cues=JSON.parse(localStorage.getItem('djcues5')||'null')}catch(e){}
+let seeded=false;if(Array.isArray(cues))cues=cues.filter(c=>!(c.scene==='award'&&c.t==='想見你想見你想見你'));if(!Array.isArray(cues)){cues=EX.map(e=>mk(...e));}
+const save=()=>{try{localStorage.setItem('djcues5',JSON.stringify(cues))}catch(e){}};
+const urls={},peaks={},durs={};
+let sel=cues[0]?.id||null,cursor=null,tab='warm';
+/* IndexedDB keeps loaded audio files between visits */
+let db=null;
+try{const r=indexedDB.open('djdeck',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>{db=r.result;cues.forEach(c=>{try{const q=db.transaction('f').objectStore('f').get(c.id);q.onsuccess=()=>{if(q.result){attach(c.id,q.result,false)}}}catch(e){}})}}catch(e){}
+const putFile=(id,b)=>{try{db&&db.transaction('f','readwrite').objectStore('f').put(b,id)}catch(e){}};
+const delFile=id=>{try{db&&db.transaction('f','readwrite').objectStore('f').delete(id)}catch(e){}};
+const au=new Audio();au.preload='auto';
+let ctx=null,gain=null;
+const ensureCtx=()=>{if(ctx)return;try{ctx=new (window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaElementSource(au);gain=ctx.createGain();src.connect(gain).connect(ctx.destination)}catch(e){ctx=null}};
+const setVol=v=>{v=Math.max(0,Math.min(1,v));if(P&&P.kind==='yt'&&YTP){try{YTP.setVolume(Math.round(v*100))}catch(x){}return}if(gain)gain.gain.value=v;else au.volume=v};
+function attach(id,blob,persist){
+  if(urls[id])URL.revokeObjectURL(urls[id]);
+  urls[id]=URL.createObjectURL(blob);
+  const c=cues.find(x=>x.id===id);if(c&&blob.name)c.fname=blob.name;
+  if(persist){putFile(id,blob);save()}
+  blob.arrayBuffer().then(buf=>{const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new AC(1,44100,44100);return oc.decodeAudioData(buf)}).then(ab=>{
+    const d=ab.getChannelData(0),N=800,step=Math.floor(d.length/N)||1,p=new Float32Array(N);
+    for(let i=0;i<N;i++){let m=0;for(let j=i*step;j<(i+1)*step&&j<d.length;j+=4){const v=Math.abs(d[j]);if(v>m)m=v}p[i]=m}
+    peaks[id]=p;durs[id]=ab.duration;render();
+  }).catch(()=>{render()});
+  render();
+}
+/* spotify: embedded player when the page runs as a local file, links when embedding is blocked */
+let SPC=null,spMode='wait',spWhy='',SPS={pos:0,ts:0,paused:true,dur:0};
+const sidOf=c=>c&&(c.sid||(SPID[c.t+'|'+c.a]||[])[0]);
+const spUrl=id=>id.startsWith('al:')?'https://open.spotify.com/album/'+id.slice(3):'https://open.spotify.com/track/'+id;
+const spUri=id=>id.startsWith('al:')?'spotify:album:'+id.slice(3):'spotify:track:'+id;
+function mode(){const m=$('mode');m.hidden=spMode==='wait';m.className='mode '+spMode;
+  m.textContent=spMode==='embed'?'Spotify 播放器已連上：按 ▶ 就在這頁播放，播到終點自動停。要先在這個瀏覽器登入 open.spotify.com（你的 Premium 帳號），才會播整首。':'claude.ai 上不能在頁面裡播歌，所以 ▶ 會在 Spotify 打開那首歌。想在頁面裡直接播，請用下載版 DJ選歌台.html。';
+  $('spWrap').hidden=spMode!=='embed'&&spWhy==='blocked'}
+const toLink=why=>{if(spMode!=='wait')return;spMode='link';spWhy=why;mode();lib();render()};
+window.onSpotifyIframeApiReady=API=>{try{API.createController($('spEmbed'),{uri:'spotify:track:76zQfy7oguyy6SrFO3sh0C',width:'100%',height:80},ctl=>{SPC=ctl;spMode='embed';
+  ctl.addListener('playback_update',e=>{const d=e.data||{};SPS={pos:(d.position||0)/1000,ts:performance.now(),paused:!!d.isPaused,dur:(d.duration||0)/1000}});mode();lib();render()})}catch(x){toLink('blocked')}};
+{const s=document.createElement('script');s.src='https://open.spotify.com/embed/iframe-api/v1';s.async=true;s.onerror=()=>toLink('blocked');document.head.appendChild(s);setTimeout(()=>toLink('slow'),20000)}
+/* youtube: plays in the page when the page runs on a real website */
+let YTP=null,ytMode='wait';const ytBad={};
+const ytId=u=>{const m=String(u||'').match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);return m?m[1]:null};
+const ytOK=u=>{const v=ytId(u);return !!(ytMode==='ok'&&YTP&&v&&!ytBad[v])};
+const ytTime=()=>{try{return YTP.getCurrentTime()||0}catch(x){return 0}};
+window.onYouTubeIframeAPIReady=()=>{try{const pv={playsinline:1,rel:0};if(location.protocol.startsWith('http'))pv.origin=location.origin;
+  YTP=new YT.Player('ytEmbed',{width:'100%',height:'150',playerVars:pv,events:{onReady:()=>{ytMode='ok';lib();render()},
+  onError:()=>{if(P&&P.kind==='yt'){ytBad[P.vid]=1;stopNow();msg('YouTube 不讓這支影片在這頁播，請按下方「在 YouTube 開啟這首」')}}}})}catch(x){ytMode='none'}};
+{const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';s.async=true;s.onerror=()=>{ytMode='none'};document.head.appendChild(s);setTimeout(()=>{if(ytMode==='wait')ytMode='none'},9000)}
+/* playback engine */
+const ytAt=(u,sec)=>{if(!/youtu/.test(u)||!sec)return u;try{const x=new URL(u);x.searchParams.set('t',Math.floor(sec)+'s');return x.toString()}catch(e){return u}};
+let P=null,tmp=null;
+const getCue=id=>cues.find(x=>x.id===id)||(tmp&&tmp.id===id?tmp:null);
+const cueOut=c=>c.q||c.pl?null:(c.out??durs[c.id]??null);
+const qOf=W=>W.s.map(r=>[r[0],r[1],(SPID[r[0]+'|'+r[1]]||[])[0]||null,URLS[r[0]+'|'+r[1]]||null]).filter(x=>x[2]||x[3]);
+const qPos={};
+const qOK=x=>!!((x[2]&&spMode==='embed'&&SPC)||ytOK(x[3]));
+const qNextPlayable=(c,i,d)=>{while(i>=0&&i<c.q.length&&!qOK(c.q[i]))i+=d;return i};
+const qCur=c=>P&&P.id===c.id&&(P.kind==='sp'||P.kind==='yt')?P.qi:(qPos[c.id]||0);
+function spLoad(uri,at){SPS={pos:at,ts:performance.now(),paused:true,dur:0};try{SPC.loadUri(uri,false,at);SPC.play()}catch(x){}}
+function play(id,qi){
+  const c=getCue(id);if(!c)return;
+  stopNow(true);sel=id;cursor=null;qi=qi||0;
+  if(c.q&&!(spMode==='embed'&&SPC)&&!c.q.some(x=>ytOK(x[3]))){qPos[c.id]=qi;$('edit').dataset.id='';render();msg('按下方清單那首的 ▶，會在 Spotify 打開那首');return}
+  if(c.q){qi=qNextPlayable(c,qi,1);if(qi>=c.q.length){msg('這份清單沒有能在這頁播的歌');return}qPos[c.id]=qi}
+  const ent=c.q?c.q[qi]:null,spOn=spMode==='embed'&&SPC,sid=c.pl?null:ent?(spOn?ent[2]:null):sidOf(c),yurl=ent?(sid?null:ent[3]):(c.pl?null:c.url),uri=c.pl?'spotify:playlist:'+c.pl:sid?spUri(sid):null;
+  if(urls[id]&&!c.q){
+    ensureCtx();if(ctx&&ctx.state==='suspended')ctx.resume();
+    if(au.src!==urls[id])au.src=urls[id];
+    setVol(c.fi>0?0:1);
+    const go=()=>{try{au.currentTime=c.in||0}catch(e){}au.play().catch(()=>{msg('瀏覽器擋下了播放，請再按一次')})};
+    if(au.readyState>=1)go();else au.addEventListener('loadedmetadata',go,{once:true});
+    P={id,kind:'file',fade:null};
+  }else if(spMode==='embed'&&SPC&&uri){
+    P={id,kind:'sp',t0:performance.now(),started:false,qi,last:0};spLoad(uri,c.q||c.pl?0:(c.in||0));
+  }else if(yurl&&ytOK(yurl)){
+    P={id,kind:'yt',t0:performance.now(),fade:null,qi,vid:ytId(yurl),started:false};$('ytWrap').hidden=false;
+    try{YTP.setVolume(!c.q&&c.fi>0?0:100);YTP.loadVideoById({videoId:P.vid,startSeconds:c.q?0:(c.in||0)})}catch(x){}
+  }else{
+    P={id,kind:'timer',t0:performance.now(),fade:null,ext:!!c.url};
+    if(c.url){let w=null;try{w=window.open(ytAt(c.url,c.in||0),'_blank');if(w)w.opener=null}catch(x){}if(!w)msg('瀏覽器擋住了新分頁，請按下方「在 YouTube 開啟這首」')}
+  }
+  render();loop();
+}
+function fadeOut(){if(!P||P.fade)return;if(P.kind==='yt'){P.fade={t0:performance.now(),dur:Math.max(.5,getCue(P.id)?.fo||3)*1000,from:(()=>{try{return YTP.getVolume()/100}catch(x){return 1}})()};return}if(P.kind==='sp'){stopNow();msg('Spotify 播放器不能調音量，所以直接停止；要淡出請載入音檔');return}
+  const c=getCue(P.id);P.fade={t0:performance.now(),dur:Math.max(.5,c?.fo||3)*1000,from:gain?gain.gain.value:au.volume}}
+function stopNow(keep){au.pause();if(P&&P.kind==='yt'&&YTP){try{YTP.pauseVideo()}catch(x){}$('ytWrap').hidden=true}if(P&&P.kind==='sp'&&SPC){try{SPC.pause()}catch(x){}}P=null;if(!keep)render()}
+const spPos=()=>SPS.paused?SPS.pos:SPS.pos+(performance.now()-SPS.ts)/1000;
+const posOf=c=>!P||P.id!==c.id?(cursor??c.in??0):P.kind==='file'?au.currentTime:P.kind==='sp'?spPos():P.kind==='yt'?ytTime():(c.in||0)+(performance.now()-P.t0)/1000;
+function loop(){
+  if(!P)return;
+  const c=getCue(P.id);if(!c){stopNow();return}
+  const pos=posOf(c),out=cueOut(c);
+  if(P.kind==='sp'){
+    const el=(performance.now()-P.t0)/1000;
+    if(!P.started&&!SPS.paused&&SPS.ts>P.t0){P.started=true;if(!c.q&&c.in&&SPS.pos<c.in-1.5){try{SPC.seek(c.in)}catch(x){}}}
+    if(!P.started&&el>8&&!P.warned){P.warned=true;msg('Spotify 還沒開始播：請確認這個瀏覽器已登入 open.spotify.com，或按一下下方播放器的播放鍵')}
+    if(c.q&&P.started&&SPS.dur>0&&(pos>=SPS.dur-0.8||(SPS.paused&&SPS.pos<0.5&&P.last>SPS.dur-5))){
+      const n=qNextPlayable(c,P.qi+1,1);if(n>=c.q.length){stopNow();msg('暖場歌單播完了');return}$('edit').dataset.id='';play(c.id,n);return}
+    else if(P.started)P.last=pos;
+    if(out!=null&&P.started&&pos>=out){stopNow();msg('「'+c.t+'」到終點，已停止');return}
+  }
+  if(P.kind==='yt'){let st=-1;try{st=YTP.getPlayerState()}catch(x){}if(st===1)P.started=true;
+    if(P.started&&st===0){if(c.q){const n=qNextPlayable(c,P.qi+1,1);if(n>=c.q.length){stopNow();msg('暖場歌單播完了');return}$('edit').dataset.id='';play(c.id,n);return}stopNow();return}}
+  if((P.kind==='file'||(P.kind==='yt'&&P.started&&!c.q))&&!P.fade&&!P.preview){const g=c.fi>0?Math.min(1,(pos-(c.in||0))/c.fi):1;setVol(g)}
+  if(P.kind!=='sp'&&out!=null&&!P.fade&&!P.preview&&pos>=out-(c.fo||0))fadeOut();
+  if(P&&P.fade){const k=(performance.now()-P.fade.t0)/P.fade.dur;if(P.kind==='file'||P.kind==='yt')setVol(P.fade.from*(1-k));if(k>=1){stopNow();msg('「'+c.t+'」結束，可以下一首');return}}
+  if(P.kind==='file'&&au.ended){stopNow();return}
+  if(P.kind==='timer'&&out!=null&&pos>=out+0.5){stopNow();return}
+  deckLive(c,pos,out);requestAnimationFrame(loop);
+}
+let msgT;const msg=t=>{const a=$('alert');a.textContent=t;a.className='alert'+(t?' on':'');clearTimeout(msgT);if(t)msgT=setTimeout(()=>{if(!P){a.textContent='';a.className='alert'}},6000)};
+function deckLive(c,pos,out){
+  $('clock').textContent=out!=null?fmt(Math.max(0,out-pos)):fmt(pos);
+  $('clockSub').textContent=out!=null?'距離終點':'已播放';
+  let t='';
+  if(P.kind==='timer'){const src=P.ext?'YouTube':'Spotify';t=P.fade?'現在把 '+src+' 的音量慢慢拉下來':P.ext?'YouTube 在新分頁播放中，約 '+fmt(pos):'Spotify 位置應在 '+fmt(pos);if(!P.fade&&out!=null&&out-pos<(c.fo||0)+5)t='再 '+Math.ceil(out-(c.fo||0)-pos)+' 秒準備淡出'}
+  else if(P.kind==='yt')t=c.q?'第 '+(P.qi+1)+'/'+c.q.length+' 首：'+c.q[P.qi][0]+'（YouTube）':P.fade?'淡出中…':!P.started?'載入 YouTube…':'YouTube 播放中 '+fmt(pos);
+  else if(P.kind==='sp')t=!P.started?'載入 Spotify…':c.pl?'歌單播放中，會一直接著播':c.q?'第 '+(P.qi+1)+'/'+c.q.length+' 首：'+c.q[P.qi][0]:'播放中 '+fmt(pos);
+  else t=P.fade?'淡出中…':'播放中 '+fmt(pos);
+  const a=$('alert');a.textContent=t;a.className='alert'+(P.fade||P.kind==='timer'?' on':'');
+  drawWave(c,pos);
+}
+/* waveform */
+function drawWave(c,pos){
+  const cv=$('wave'),fig=$('fig'),W=fig.clientWidth,H=fig.clientHeight,r=devicePixelRatio||1;
+  if(cv.width!==W*r||cv.height!==H*r){cv.width=W*r;cv.height=H*r}
+  const g=cv.getContext('2d');g.setTransform(r,0,0,r,0,0);g.clearRect(0,0,W,H);
+  if(!c){$('figmsg').textContent='從左邊選一首歌，或在下方選歌庫按 ▶';return}
+  const col=getComputedStyle(document.documentElement).getPropertyValue('--'+c.scene).trim()||'#ffd23f';
+  const p=peaks[c.id],dur=durs[c.id];
+  if(!p){
+    $('figmsg').textContent=urls[c.id]?'讀取音檔中…':c.pl?(spMode==='embed'?'Spotify 歌單：按播放會一直接著播。播放器不能調音量，請用電腦音量調小聲。':'在 Spotify 打開這份歌單來播，記得開隨機播放。'):c.q?'暖場歌單 '+c.q.length+' 首：'+(spMode==='embed'?'按播放從第 1 首連續播，一首接一首。':'在 Spotify 打開歌單裡的歌來播。'):spMode==='embed'&&sidOf(c)?'Spotify 播放：從 '+fmt(c.in||0)+' 播到 '+fmt(cueOut(c))+'，到點自動停。要淡出或看波形，請在下方載入音檔。':c.url&&!c.pl&&ytOK(c.url)?'YouTube 會在這頁播：可以設定起點、終點和淡出，到點自動停。':c.url&&!c.pl?'YouTube 連結：按播放會開新分頁，從 '+fmt(c.in||0)+' 開始播，這裡倒數提醒終點。想在這頁直接播、自動淡出，請在下方載入音檔。':'先在 Spotify 拖到 '+fmt(c.in||0)+' 暫停，再和這裡的播放鍵同時按，這裡會倒數提醒。';
+    if(P&&P.id===c.id){const lst=c.q||c.pl,qd=lst&&P.kind==='sp'?SPS.dur||240:0,out=lst?qd:cueOut(c),st=lst?0:(c.in||0),span=(out??st+240)-st,k=Math.max(0,Math.min(1,(pos-st)/span));g.fillStyle=col;g.globalAlpha=.25;g.fillRect(0,0,W*k,H);g.globalAlpha=1}
+    return}
+  $('figmsg').textContent='';
+  const x=t=>t/dur*W,ins=c.in||0,out=cueOut(c)??dur,mid=H/2,bw=W/p.length;
+  g.fillStyle=col;g.globalAlpha=.12;g.fillRect(x(ins),0,x(out)-x(ins),H);
+  for(let i=0;i<p.length;i++){const t=i/p.length*dur,h=Math.max(1,p[i]*(H-16));g.globalAlpha=t>=ins&&t<=out?1:.25;g.fillStyle=t>=ins&&t<=out?col:'#8a8378';g.fillRect(i*bw,mid-h/2,Math.max(1,bw-.5),h)}
+  g.globalAlpha=1;g.fillStyle='#f3efe6';[ins,out].forEach(t=>g.fillRect(x(t)-1,0,2,H));
+  g.font='700 12px "Noto Sans TC"';g.fillText('起 '+fmt(ins),Math.min(W-60,x(ins)+5),14);g.fillText('終 '+fmt(out),Math.max(4,x(out)-58),H-6);
+  const ph=P&&P.id===c.id?pos:cursor;if(ph!=null){g.fillStyle='#ffd23f';g.fillRect(x(ph)-1.5,0,3,H)}
+}
+$('fig').addEventListener('click',e=>{
+  const c=getCue(sel);if(!c||!durs[c.id])return;
+  const b=$('fig').getBoundingClientRect(),t=(e.clientX-b.left)/b.width*durs[c.id];
+  if(P&&P.id===c.id&&P.kind==='file'){au.currentTime=t}else{stopNow(true);cursor=t;
+    ensureCtx();if(ctx&&ctx.state==='suspended')ctx.resume();
+    if(au.src!==urls[c.id])au.src=urls[c.id];setVol(1);au.currentTime=t;au.play().catch(()=>{});P={id:c.id,kind:'file',fade:null,preview:true};loop()}
+  render();
+});
+new ResizeObserver(()=>{const c=getCue(sel);drawWave(c,c?posOf(c):0)}).observe($('fig'));
+/* render */
+const kindOf=c=>urls[c.id]?'音檔':c.url&&!c.sid&&!c.pl?(/youtu/.test(c.url)?'YouTube 連結':'外部連結'):c.pl?'Spotify 歌單':c.q?'歌單 '+c.q.length+' 首':sidOf(c)?'Spotify':'Spotify 搜尋';
+function render(){
+  const L=$('list');let html='',last='';
+  if(!cues.length)html='<p class="pm">流程是空的。到下方選歌庫按「加入流程」，或恢復範例流程。</p>';
+  cues.forEach((c,i)=>{const s=sc(c.scene);if(c.scene!==last){html+='<div class="scene" style="--c:'+s.c+'">'+s.n+'</div>';last=c.scene}
+    html+='<button class="pad'+(c.id===sel?' sel':'')+(P&&P.id===c.id?' play':'')+'" style="--c:'+s.c+'" data-id="'+c.id+'"><span class="num">'+(i<9?i+1:'·')+'</span><span><div class="pt">'+esc(c.t)+'</div><div class="pm">'+esc(c.a)+' · '+kindOf(c)+'</div></span><span class="ptime">'+(c.q||c.pl?'連續播放':fmt(c.in||0)+'–'+fmt(cueOut(c))+'<br>淡出 '+(c.fo||0)+' 秒')+'</span></button>'});
+  L.innerHTML=html;
+  const c=getCue(sel);
+  $('npLabel').textContent=P?'正在播放':'已選';
+  $('nt').textContent=c?(P&&(P.kind==='sp'||P.kind==='yt')&&c.q&&P.id===c.id?c.q[P.qi][0]:c.t):'—';$('na').textContent=c?(P&&(P.kind==='sp'||P.kind==='yt')&&c.q&&P.id===c.id?c.q[P.qi][1]+' · '+c.t:c.a+' · '+sc(c.scene).n):'';
+  if(!P){$('clock').textContent=c&&cueOut(c)!=null?fmt(cueOut(c)-(c.in||0)):'—';$('clockSub').textContent=c&&cueOut(c)!=null?'片段長度':c&&c.q?'歌單':'整首'}
+  $('playBtn').disabled=!c;
+  const os=$('openSp'),qe=c&&c.q?c.q[qCur(c)]||[]:null,sid=c&&!c.pl&&(qe?qe[2]:sidOf(c)),href=c&&c.pl?'https://open.spotify.com/playlist/'+c.pl:sid?spUrl(sid):qe?qe[3]||null:c&&c.url||null;os.hidden=!href;if(href){os.href=href;os.textContent=c.pl?'在 Spotify 開啟這份歌單':sid?'在 Spotify 開啟這首':/youtu/.test(href)?'在 YouTube 開啟這首':'開啟這首的連結'}
+  const E=$('edit');
+  if(!c){E.innerHTML='';E.dataset.id='';drawWave(null);return}
+  if(!E.dataset.lock&&(E.dataset.id!==c.id||!E.contains(document.activeElement))){
+  E.dataset.id=c.id;
+  const QL=c.q?qList(c):'';
+  if(!cues.includes(c)){
+    E.innerHTML=QL+'<p class="hint">這首是從選歌庫直接播放的。要排進今天的流程、設定起點終點，按加入流程。</p><div class="row2"><button class="btn sm" id="addTmp">加入流程</button></div>';
+    $('addTmp').onclick=()=>{const L=c.q||c.pl,n=mk(c.scene,c.t,c.a,0,L?null:30,c.q?3:0,c.q?8:L?0:3);if(c.q)n.q=c.q;if(c.pl)n.pl=c.pl;if(P&&P.id===c.id)P.id=n.id;tmp=null;insert(n)};
+  }else if(c.q||c.pl){
+    E.innerHTML=QL+(c.pl?'<p class="hint">'+esc(c.a+'。按播放會一直接著播，不用設定起點終點。')+'</p>':'')+'<div class="row2"><button class="btn sm" id="up">上移</button><button class="btn sm" id="down">下移</button><button class="btn sm" id="del">刪除</button></div>';
+  }else{
+  E.innerHTML='<label>起點<input id="fIn" value="'+fmt(c.in||0)+'" inputmode="numeric"></label><label>終點<input id="fOut" value="'+(c.out==null?'結尾':fmt(c.out))+'"></label><label>淡入（秒）<input id="fFi" type="number" min="0" max="20" value="'+(c.fi||0)+'"></label><label>淡出（秒）<input id="fFo" type="number" min="0" max="20" value="'+(c.fo||0)+'"></label>'+
+  '<div class="row2"><span class="btn sm file">'+(urls[c.id]?'換音檔':'載入音檔')+'<input type="file" accept="audio/*" id="fFile"></span>'+(durs[c.id]?'<button class="btn sm" id="setIn">游標設為起點</button><button class="btn sm" id="setOut">游標設為終點</button>':'')+'<button class="btn sm" id="up">上移</button><button class="btn sm" id="down">下移</button><button class="btn sm" id="del">刪除</button></div>'+
+  '<p class="hint">'+(durs[c.id]?'點波形任一處試聽並放游標，再按「游標設為起點／終點」。':'時間格式 1:05，終點填「結尾」代表整首。')+(c.fname?' 音檔：'+esc(c.fname):'')+'</p>';
+  const upd=()=>{const i=parse($('fIn').value),o=parse($('fOut').value);if(i!==undefined)c.in=i??0;if(o!==undefined)c.out=o;c.fi=+$('fFi').value||0;c.fo=+$('fFo').value||0;save();E.dataset.lock='1';render();delete E.dataset.lock};
+  ['fIn','fOut','fFi','fFo'].forEach(k=>$(k).addEventListener('change',upd));
+  $('fFile').addEventListener('change',e=>{const f=e.target.files[0];if(f){if(P&&P.id===c.id)stopNow();E.dataset.id='';attach(c.id,f,true)}});
+  const si=$('setIn'),so=$('setOut'),cur=()=>P&&P.id===c.id?au.currentTime:cursor;
+  if(si)si.onclick=()=>{const t=cur();if(t!=null){c.in=Math.floor(t);save();E.dataset.id='';render()}};
+  if(so)so.onclick=()=>{const t=cur();if(t!=null){c.out=Math.ceil(t);save();E.dataset.id='';render()}};
+  }
+  if(c.q)qWire(c);
+  if($('up')){$('up').onclick=()=>move(c,-1);$('down').onclick=()=>move(c,1);
+  $('del').onclick=()=>{if(P&&P.id===c.id)stopNow();delFile(c.id);const i=cues.indexOf(c);cues.splice(i,1);sel=cues[Math.min(i,cues.length-1)]?.id||null;save();E.dataset.id='';render()}}
+  }
+  drawWave(c,posOf(c));
+}
+function qList(c){const cur=qCur(c),emb=spMode==='embed';
+  return '<div class="full"><div class="qnav"><button class="btn sm" id="qPrev">⏮ 上一首</button><span class="pm">第 '+(cur+1)+' / '+c.q.length+' 首</span><button class="btn sm" id="qNext">下一首 ⏭</button></div><ol class="ql">'+c.q.map((x,i)=>{const href=x[2]?spUrl(x[2]):x[3];
+    const b=(emb&&x[2])||ytOK(x[3])?'<button class="qb" data-qi="'+i+'" aria-label="播放">▶</button>':'<a class="qb" href="'+esc(href)+'" target="_blank" rel="noopener" data-qo="'+i+'" aria-label="開啟">▶</a>';
+    return '<li'+(i===cur?' class="cur"':'')+'>'+b+'<span class="qt">'+esc(x[0])+' <small>'+esc(x[1])+(x[2]?'':' · YouTube')+'</small></span></li>'}).join('')+'</ol></div>'}
+function qWire(c){const E=$('edit'),emb=spMode==='embed'&&SPC;
+  E.querySelectorAll('[data-qi]').forEach(b=>b.onclick=()=>{E.dataset.id='';play(c.id,+b.dataset.qi)});
+  E.querySelectorAll('[data-qo]').forEach(a=>a.onclick=()=>{qPos[c.id]=+a.dataset.qo;setTimeout(()=>{E.dataset.id='';render()},50)});
+  const go=d=>{const cur=qCur(c);let n=Math.max(0,Math.min(c.q.length-1,cur+d));
+    if(P&&P.id===c.id&&(P.kind==='sp'||P.kind==='yt')){n=qNextPlayable(c,n,d);if(n<0||n>=c.q.length)return;E.dataset.id='';play(c.id,n);return}
+    qPos[c.id]=n;E.dataset.id='';render();if(!emb)msg('按清單亮起那首的 ▶，或下方「在 Spotify 開啟這首」')};
+  $('qPrev').onclick=()=>go(-1);$('qNext').onclick=()=>go(1);
+  const li=E.querySelector('.ql .cur');if(li){const ol=li.parentNode;ol.scrollTop=li.offsetTop-ol.offsetTop-40}}
+function move(c,d){const i=cues.indexOf(c),j=i+d;if(j<0||j>=cues.length)return;[cues[i],cues[j]]=[cues[j],cues[i]];save();$('edit').dataset.id='';render()}
+$('list').addEventListener('click',e=>{const b=e.target.closest('.pad');if(!b)return;if(sel===b.dataset.id&&!P){play(sel);return}sel=b.dataset.id;cursor=null;$('edit').dataset.id='';render()});
+$('playBtn').onclick=()=>{if(P&&P.id===sel&&!P.preview){stopNow();return}sel&&play(sel)};
+$('fadeBtn').onclick=fadeOut;$('stopBtn').onclick=()=>stopNow();
+document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;
+  if((e.key==='ArrowRight'||e.key==='ArrowLeft')&&$('qNext')){e.preventDefault();$(e.key==='ArrowRight'?'qNext':'qPrev').click();return}
+  if(e.code==='Space'){e.preventDefault();fadeOut()}else if(e.key==='Escape')stopNow();else if(/^[1-9]$/.test(e.key)){const c=cues[+e.key-1];if(c){$('edit').dataset.id='';play(c.id)}}});
+let pend=null;
+const ask=(btn,label,fn)=>{const cf=$('confirm');if(pend===btn){pend=null;cf.hidden=true;fn();return}pend=btn;cf.hidden=false;cf.textContent='再按一次「'+label+'」確認';setTimeout(()=>{if(pend===btn){pend=null;cf.hidden=true}},4000)};
+const seed=()=>{const a=EX.map(e=>mk(...e));a.forEach(c=>{if(c.q===undefined&&c.scene==='warm'&&c.t.startsWith('暖場歌單'))c.q=qOf(WARM.zh);if(c.scene==='talk'&&!c.pl){const r=TALK.find(x=>x[0]===c.t);if(r)c.pl=r[2]}});return a};
+$('resetBtn').onclick=()=>ask('r','恢復範例流程',()=>{stopNow();cues.forEach(c=>delFile(c.id));cues=seed();sel=cues[0].id;save();$('edit').dataset.id='';render()});
+$('clearBtn').onclick=()=>ask('c','清空流程',()=>{stopNow();cues.forEach(c=>delFile(c.id));cues=[];sel=null;save();render()});
+{const all={};[WARM,...THEMES.map(t=>t.warm)].forEach(o=>Object.values(o).forEach(w=>all['暖場歌單・'+w.n]=w));cues.forEach(c=>{if(c.q&&all[c.t]){c.q=qOf(all[c.t]);c.a=all[c.t].s.length+' 首・約 '+Math.round(all[c.t].s.reduce((a,r)=>a+durOf(r),0)/60)+' 分'}})}
+if(!seeded)cues.forEach(c=>{if(c.q===undefined&&c.scene==='warm'&&c.t.startsWith('暖場歌單'))c.q=qOf(WARM.zh);if(c.scene==='talk'&&!c.pl){const r=TALK.find(x=>x[0]===c.t);if(r)c.pl=r[2]}});
+/* library */
+let th=THEMES[0];try{th=THEMES.find(t=>t.k===localStorage.getItem('djtheme2'))||th}catch(e){}
+const wtabs=()=>Object.assign({},th.warm,WARM);let wl=Object.keys(wtabs())[0];
+const q2=(t,a)=>encodeURIComponent(t+' '+a);
+const pbtn=(t,a,attr)=>{const id=(SPID[t+'|'+a]||[])[0];
+  if(spMode==='embed'&&id)return '<button class="btn sm pl" '+attr+'>▶ 播放</button>';
+  if(id)return '<a class="btn sm pl" href="'+spUrl(id)+'" target="_blank" rel="noopener">▶ Spotify</a>';
+  const u=URLS[t+'|'+a];if(u&&ytOK(u))return '<button class="btn sm pl" '+attr+'>▶ 播放</button>';if(u)return '<a class="btn sm pl" href="'+u+'" target="_blank" rel="noopener">▶ YouTube</a>';
+  return '<a class="btn sm" href="https://open.spotify.com/search/'+q2(t,a)+'" target="_blank" rel="noopener">Spotify 搜尋</a>'};
+const yt=(t,a)=>'<a href="https://www.youtube.com/results?search_query='+q2(t,a)+'" target="_blank" rel="noopener">YouTube</a>';
+function lib(){
+  $('chips').innerHTML=SC.map(s=>'<button class="chip" style="--c:'+s.c+'" aria-pressed="'+(s.k===tab)+'" data-k="'+s.k+'">'+s.n+'</button>').join('');
+  $('themes').innerHTML=THEMES.map(t=>'<button class="chip th" aria-pressed="'+(t===th)+'" data-t="'+t.k+'">'+t.n+'</button>').join('');
+  $('themeTip').textContent=th.d;
+  const s=sc(tab),WT=wtabs(),own=tab==='warm'?Object.keys(th.warm).length:tab==='talk'?1:th.lib[tab];
+  $('sceneTip').textContent=s.tip+(th.k!=='std'&&!own?' 這個主題沿用通用選歌。':'');
+  if(tab==='warm'){
+    if(!WT[wl])wl=Object.keys(WT)[0];const W=WT[wl];let cum=0,mark=false;
+    const rows=W.s.map((r,i)=>{const d=durOf(r);cum+=d;let x='';if(!mark&&cum>=1800){mark=true;x=' class="m30"'}return '<tr'+x+'><td class="n">'+(i+1)+'</td><td><b>'+esc(r[0])+'</b><div class="pm">'+esc(r[1])+'</div></td><td class="tm">'+fmt(d)+'</td><td class="tm">'+fmt(cum)+'</td><td class="lk">'+pbtn(r[0],r[1],'data-pw="'+i+'"')+'</td></tr>'}).join('');
+    $('cards').innerHTML='<div class="warm" style="--c:'+s.c+'"><div class="wbar"><div class="chips sub">'+Object.keys(WT).map(k=>'<button class="chip" style="--c:'+s.c+'" aria-pressed="'+(k===wl)+'" data-l="'+k+'">'+WT[k].n+'</button>').join('')+'</div><div class="wsum"><b>'+W.s.length+' 首・約 '+Math.round(total(wl,WT)/60)+' 分鐘</b>'+(spMode==='embed'?'<button class="btn sm pl" data-pq>▶ 從第 1 首連續播</button>':'')+'<button class="btn sm" data-addw>整份加入流程</button></div></div><div class="scroll"><table><thead><tr><th>#</th><th>歌名</th><th>長度</th><th>累計</th><th>播放</th></tr></thead><tbody>'+rows+'</tbody></table></div><p class="pm">黃線那首播完約 30 分鐘，只需要半小時就放到那裡；不到一小時的歌單可以接另一份。</p></div>';
+    return}
+  if(tab==='talk'){$('cards').innerHTML='<div class="cards">'+TALK.map((r,i)=>'<div class="card" style="--c:'+s.c+'"><div class="ct">'+esc(r[0])+'</div><div class="pm">Spotify 歌單・'+esc(r[4])+'</div><div class="clap">'+esc(r[3])+'</div><p class="why">'+esc(r[1])+'</p><div class="links">'+(spMode==='embed'?'<button class="btn sm pl" data-pp="'+i+'">▶ 播放</button>':'<a class="btn sm pl" href="https://open.spotify.com/playlist/'+r[2]+'" target="_blank" rel="noopener">▶ Spotify</a>')+'<button class="btn sm" data-ap="'+i+'">加入流程</button></div></div>').join('')+'</div>';return}
+  $('cards').innerHTML='<div class="cards">'+(th.lib[tab]||LIB[tab]).map((r,i)=>'<div class="card" style="--c:'+s.c+'"><div class="ct">'+esc(r[0])+'</div><div class="pm">'+esc(r[1])+'</div>'+(r[4]?'<div class="clap">'+esc(r[4])+'</div>':'')+'<p class="why"><span class="use">'+r[2]+'</span>'+esc(r[3])+'</p><div class="links">'+pbtn(r[0],r[1],'data-pc="'+i+'"')+'<button class="btn sm" data-add="'+i+'">加入流程</button>'+yt(r[0],r[1])+'</div></div>').join('')+'</div>';
+}
+const insert=c=>{const order=SC.map(s=>s.k),ti=order.indexOf(c.scene);let at=cues.findIndex(x=>order.indexOf(x.scene)>ti);if(at<0)at=cues.length;cues.splice(at,0,c);sel=c.id;save();$('edit').dataset.id='';render()};
+const done=b=>{const t=b.textContent;b.textContent='已加入 ✓';setTimeout(()=>b.textContent=t,1500)};
+const preview=(scene,t,a,q,pl)=>{tmp={id:'tmp'+(uid++),scene,t,a,in:0,out:null,fi:0,fo:0};if(URLS[t+'|'+a])tmp.url=URLS[t+'|'+a];if(q)tmp.q=q;if(pl)tmp.pl=pl;$('edit').dataset.id='';play(tmp.id,0);if(innerWidth<860)$('deck').scrollIntoView({behavior:'smooth',block:'start'})};
+$('chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b){tab=b.dataset.k;lib()}});
+$('themes').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;th=THEMES.find(t=>t.k===b.dataset.t);wl=Object.keys(wtabs())[0];try{localStorage.setItem('djtheme2',th.k)}catch(x){}lib()});
+$('cards').addEventListener('click',e=>{
+  const l=e.target.closest('[data-l]');if(l){wl=l.dataset.l;lib();return}
+  const WT=wtabs(),W=WT[wl],list=th.lib[tab]||LIB[tab];
+  const pw=e.target.closest('[data-pw]');if(pw){const r=W.s[+pw.dataset.pw];preview('warm',r[0],r[1]);return}
+  if(e.target.closest('[data-pq]')){preview('warm','暖場歌單・'+W.n,W.s.length+' 首',qOf(W));return}
+  const pp=e.target.closest('[data-pp]');if(pp){const r=TALK[+pp.dataset.pp];preview('talk',r[0],'Spotify 歌單・'+r[3],null,r[2]);return}
+  const ap=e.target.closest('[data-ap]');if(ap){const r=TALK[+ap.dataset.ap],n=mk('talk',r[0],'Spotify 歌單・'+r[3],0,null,0,0);n.pl=r[2];insert(n);done(ap);return}
+  const pc=e.target.closest('[data-pc]');if(pc){const r=list[+pc.dataset.pc];preview(tab,r[0],r[1]);return}
+  if(e.target.closest('[data-addw]')){const n=mk('warm','暖場歌單・'+W.n,W.s.length+' 首・約 '+Math.round(total(wl,WT)/60)+' 分',0,null,3,8);n.q=qOf(W);insert(n);done(e.target);return}
+  const b=e.target.closest('[data-add]');if(!b)return;const r=list[+b.dataset.add];
+  const n=mk(tab,r[0],r[1],0,r[2]==='整首'?null:30,r[2]==='整首'?2:0,r[2]==='整首'?6:3);const u=URLS[r[0]+'|'+r[1]];if(u)n.url=u;insert(n);done(b)});
+$('ownS').innerHTML=SC.map(x=>'<option value="'+x.k+'">'+x.n+'</option>').join('');
+$('ownForm').addEventListener('submit',e=>{e.preventDefault();
+  const t=$('ownT').value.trim(),a=$('ownA').value.trim(),u=$('ownU').value.trim(),sc2=$('ownS').value;if(!t)return;
+  const n=mk(sc2,t,a||'自己加的歌',0,null,0,3);let note='已加入流程。';
+  const tm=u.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?track\/([A-Za-z0-9]{22})/),pm=u.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?playlist\/([A-Za-z0-9]{22})/);
+  if(tm){n.sid=tm[1];note+=' 這首可以在下載版直接播。'}else if(pm){n.pl=pm[1];note+=' 這份歌單可以在下載版直接播。'}
+  else if(/^https:\/\//.test(u)){n.url=u;note+=' 播放時從播放台的連結打開；要播片段請載入音檔。'}
+  else if(u){note='連結要以 https:// 開頭，已先加入歌名。'}
+  insert(n);$('ownT').value='';$('ownA').value='';$('ownU').value='';$('ownMsg').textContent=note});
+lib();render();
+}
+</script>
+
+</body></html>
