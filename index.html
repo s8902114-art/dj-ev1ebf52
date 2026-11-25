@@ -102,6 +102,14 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none;color:inherit}
 .qt small{color:var(--mute);font-weight:400}
 .ytwrap{margin-top:12px;border-radius:12px;overflow:hidden;background:#000}
 .ytwrap iframe{display:block;width:100%;border:0}
+.search{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:14px 0 4px}
+.search input{flex:1 1 320px;max-width:560px;padding:11px 14px;border-radius:10px}
+.sbadge{display:inline-block;font-size:12px;font-weight:700;color:#191815;background:var(--c);border-radius:6px;padding:1px 7px}
+.src{font-size:13px;color:var(--mute)}
+.rh{font-size:15px;margin:18px 0 8px;font-weight:900}
+.sres{max-height:none}
+.sres .btn{flex:none}
+.sphint{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
 .tlabel{font-size:13px;color:var(--mute);margin-top:14px}
 .chip.th{--c:var(--ink)}
 #themes{margin:6px 0 8px}
@@ -168,6 +176,7 @@ tr.m30 td{border-bottom:2px solid var(--c)}
 <div class="band lib"><div class="wrap">
   <h2>選歌庫</h2>
   <p class="lead">先選活動主題，再選情境。每首歌都附上建議用哪一段、放多長。按「加入流程」會排進上面對應的段落。暖場是一小時的整份歌單，頒獎歌都標了拍號、速度和怎麼拍手。</p>
+  <div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋歌名、歌手、情境或類別，例如：頒獎 拍手、春酒、KPOP、五月天"><span id="qn" class="pm"></span></div>
   <div class="tlabel">活動主題</div>
   <div class="chips" id="themes"></div>
   <p class="lead" id="themeTip"></p>
@@ -499,12 +508,64 @@ const pbtn=(t,a,attr)=>{const id=(SPID[t+'|'+a]||[])[0];
   const u=URLS[t+'|'+a];if(u&&ytOK(u))return '<button class="btn sm pl" '+attr+'>▶ 播放</button>';if(u)return '<a class="btn sm pl" href="'+u+'" target="_blank" rel="noopener">▶ YouTube</a>';
   return '<a class="btn sm" href="https://open.spotify.com/search/'+q2(t,a)+'" target="_blank" rel="noopener">Spotify 搜尋</a>'};
 const yt=(t,a)=>'<a href="https://www.youtube.com/results?search_query='+q2(t,a)+'" target="_blank" rel="noopener">YouTube</a>';
+let qs='',hits=[];
+/* Spotify search across all of Spotify: PKCE login, works only on the hosted https site */
+const SP_CLIENT='';
+const SPA={on:!!SP_CLIENT&&location.protocol==='https:'&&!/claude\.ai$/.test(location.hostname),redirect:location.origin+location.pathname};
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function spLogin(){const v=b64u(crypto.getRandomValues(new Uint8Array(48)));ls.set('sp_pkce',v);
+  const ch=b64u(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)));
+  location.href='https://accounts.spotify.com/authorize?'+new URLSearchParams({client_id:SP_CLIENT,response_type:'code',redirect_uri:SPA.redirect,code_challenge_method:'S256',code_challenge:ch,scope:''})}
+async function spTokenReq(body){const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body)});
+  if(!r.ok)throw new Error('token '+r.status);const j=await r.json();ls.set('sp_at',j.access_token);ls.set('sp_exp',String(Date.now()+(j.expires_in-60)*1000));if(j.refresh_token)ls.set('sp_rt',j.refresh_token);return j.access_token}
+async function spToken(){const at=ls.get('sp_at'),exp=+ls.get('sp_exp')||0;if(at&&Date.now()<exp)return at;const rt=ls.get('sp_rt');if(!rt)return null;
+  try{return await spTokenReq({grant_type:'refresh_token',refresh_token:rt,client_id:SP_CLIENT})}catch(e){ls.del('sp_at');ls.del('sp_rt');return null}}
+async function spBoot(){if(!SPA.on)return;const u=new URL(location.href),code=u.searchParams.get('code');
+  if(code){try{await spTokenReq({grant_type:'authorization_code',code,redirect_uri:SPA.redirect,client_id:SP_CLIENT,code_verifier:ls.get('sp_pkce')||''})}catch(e){}
+    history.replaceState(null,'',SPA.redirect)}
+  SPA.ok=!!(await spToken());lib()}
+let spQ='',spRes=null,spBusy=false;
+async function spSearch(q){if(!SPA.ok||!q){spRes=null;return}spQ=q;spBusy=true;
+  try{const at=await spToken();if(!at){SPA.ok=false;spBusy=false;lib();return}
+    const r=await fetch('https://api.spotify.com/v1/search?'+new URLSearchParams({q,type:'track,playlist',limit:'20',market:'TW'}),{headers:{Authorization:'Bearer '+at}});
+    const j=r.ok?await r.json():null;if(q!==spQ)return;
+    spRes={tracks:((j&&j.tracks&&j.tracks.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:x.artists.map(y=>y.name).join(', '),ms:x.duration_ms})),
+      lists:((j&&j.playlists&&j.playlists.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:(x.owner&&x.owner.display_name)||'',n:x.tracks&&x.tracks.total}))}}
+  catch(e){spRes={err:1}}spBusy=false;if(qs===q)renderSearch()}
+const SYN={warm:'暖場 背景 等待 入座',enter:'進場 登場 開場 出場',talk:'討論 填表 輕音樂 純音樂 背景 讀書',mid:'中場 用餐 遊戲 休息',award:'頒獎 表揚 抽獎 得獎',photo:'拍照 合照 慶生',end:'散場 送客 結尾 收尾'};
+const IDX=(()=>{const m=new Map(),add=(t,a,scene,src,x)=>{const k=t+'|'+a+'|'+scene;let e=m.get(k);if(!e){e={t,a,scene,src:[],why:'',clap:'',use:''};m.set(k,e)}if(!e.src.includes(src))e.src.push(src);if(x){e.why=e.why||x[3]||'';e.clap=e.clap||x[4]||'';e.use=e.use||x[2]||''}};
+  SC.forEach(c=>(LIB[c.k]||[]).forEach(r=>add(r[0],r[1],c.k,'通用・'+c.n,r)));
+  THEMES.forEach(t=>{SC.forEach(c=>(t.lib[c.k]||[]).forEach(r=>add(r[0],r[1],c.k,t.n+'・'+c.n,r)));Object.values(t.warm).forEach(w=>w.s.forEach(r=>add(r[0],r[1],'warm',t.n+'・'+w.n)))});
+  Object.values(WARM).forEach(w=>w.s.forEach(r=>add(r[0],r[1],'warm','暖場・'+w.n)));
+  TALK.forEach(r=>m.set(r[0]+'|pl',{t:r[0],a:'Spotify 歌單',scene:'talk',src:['討論・填表'],why:r[1]+'（'+r[3]+'）',clap:'',use:'歌單',pl:r[2]}));
+  return [...m.values()]})();
+function searchHits(q){const terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  return IDX.filter(e=>{const h=(e.t+' '+e.a+' '+e.src.join(' ')+' '+SYN[e.scene]+' '+e.why+' '+e.clap+(e.clap?' 拍手 掌聲':'')+' '+e.use).toLowerCase();return terms.every(x=>h.includes(x))})}
+function renderSearch(){hits=searchHits(qs);$('qn').textContent='選歌庫找到 '+hits.length+' 首';
+  $('sceneTip').textContent='搜尋結果：按 ▶ 直接播，按「加入流程」會排進那首歌所屬的情境。清掉搜尋框就回到分類瀏覽。';
+  const SPH=spHtml();
+  if(!hits.length){$('cards').innerHTML=SPH+'<p class="lead">選歌庫裡沒有找到。換個關鍵字試試，例如歌手名、「頒獎」、「暖場」、「KPOP」或「拍手」。</p>';return}
+  $('cards').innerHTML=SPH+'<h3 class="rh">選歌庫裡的</h3><div class="cards">'+hits.slice(0,80).map((e,i)=>{const c=sc(e.scene);
+    const play=e.pl?(spMode==='embed'?'<button class="btn sm pl" data-sr="'+i+'">▶ 播放</button>':'<a class="btn sm pl" href="https://open.spotify.com/playlist/'+e.pl+'" target="_blank" rel="noopener">▶ Spotify</a>'):pbtn(e.t,e.a,'data-sr="'+i+'"');
+    return '<div class="card" style="--c:'+c.c+'"><div><span class="sbadge">'+c.n+'</span></div><div class="ct">'+esc(e.t)+'</div><div class="pm">'+esc(e.a)+'</div><div class="src">'+esc(e.src.slice(0,3).join('、')+(e.src.length>3?' 等':''))+'</div>'+(e.clap?'<div class="clap">'+esc(e.clap)+'</div>':'')+(e.why?'<p class="why">'+(e.use&&e.use!=='歌單'?'<span class="use">'+esc(e.use)+'</span>':'')+esc(e.why)+'</p>':'<p class="why"></p>')+'<div class="links">'+play+'<button class="btn sm" data-sa="'+i+'">加入流程</button></div></div>'}).join('')+'</div>'+(hits.length>80?'<p class="pm">只列出前 80 首，再多打一個關鍵字可以縮小範圍。</p>':'')}
+function spHtml(){if(!SPA.on)return '';
+  if(!SPA.ok)return '<div class="sphint"><b>想搜尋 Spotify 上所有的歌？</b><span class="pm">連結一次你的 Spotify 帳號就能搜。</span><button class="btn sm pl" id="spLogin">連結 Spotify</button></div>';
+  if(spQ!==qs&&!spBusy)spSearch(qs);
+  if(!spRes||spBusy||spQ!==qs)return '<h3 class="rh">Spotify 上的</h3><p class="pm">搜尋中…</p>';
+  if(spRes.err)return '<h3 class="rh">Spotify 上的</h3><p class="pm">Spotify 搜尋失敗，稍後再試。</p>';
+  const add='加入「'+sc(tab).n+'」';
+  const T=spRes.tracks.map((x,i)=>'<li><button class="qb" data-st="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>'+esc(x.a)+' · '+fmt(x.ms/1000)+'</small></span><button class="btn sm" data-sta="'+i+'">'+add+'</button></li>').join('');
+  const L=spRes.lists.slice(0,8).map((x,i)=>'<li><button class="qb" data-sl="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>歌單 · '+esc(x.a)+(x.n?' · '+x.n+' 首':'')+'</small></span><button class="btn sm" data-sla="'+i+'">'+add+'</button></li>').join('');
+  return '<h3 class="rh">Spotify 上的歌</h3><ol class="ql sres">'+(T||'<li class="pm">沒有找到歌曲</li>')+'</ol>'+(L?'<h3 class="rh">Spotify 上的歌單</h3><ol class="ql sres">'+L+'</ol>':'')+'<p class="pm">「加入」會排進目前選的情境；想放別的情境，先點下面的情境再加入。</p>'}
 function lib(){
   $('chips').innerHTML=SC.map(s=>'<button class="chip" style="--c:'+s.c+'" aria-pressed="'+(s.k===tab)+'" data-k="'+s.k+'">'+s.n+'</button>').join('');
   $('themes').innerHTML=THEMES.map(t=>'<button class="chip th" aria-pressed="'+(t===th)+'" data-t="'+t.k+'">'+t.n+'</button>').join('');
   $('themeTip').textContent=th.d;
   const s=sc(tab),WT=wtabs(),own=tab==='warm'?Object.keys(th.warm).length:tab==='talk'?1:th.lib[tab];
   $('sceneTip').textContent=s.tip+(th.k!=='std'&&!own?' 這個主題沿用通用選歌。':'');
+  if(qs){renderSearch();return}
+  $('qn').textContent='';
   if(tab==='warm'){
     if(!WT[wl])wl=Object.keys(WT)[0];const W=WT[wl];let cum=0,mark=false;
     const rows=W.s.map((r,i)=>{const d=durOf(r);cum+=d;let x='';if(!mark&&cum>=1800){mark=true;x=' class="m30"'}return '<tr'+x+'><td class="n">'+(i+1)+'</td><td><b>'+esc(r[0])+'</b><div class="pm">'+esc(r[1])+'</div></td><td class="tm">'+fmt(d)+'</td><td class="tm">'+fmt(cum)+'</td><td class="lk">'+pbtn(r[0],r[1],'data-pw="'+i+'"')+'</td></tr>'}).join('');
@@ -516,9 +577,17 @@ function lib(){
 const insert=c=>{const order=SC.map(s=>s.k),ti=order.indexOf(c.scene);let at=cues.findIndex(x=>order.indexOf(x.scene)>ti);if(at<0)at=cues.length;cues.splice(at,0,c);sel=c.id;save();$('edit').dataset.id='';render()};
 const done=b=>{const t=b.textContent;b.textContent='已加入 ✓';setTimeout(()=>b.textContent=t,1500)};
 const preview=(scene,t,a,q,pl)=>{tmp={id:'tmp'+(uid++),scene,t,a,in:0,out:null,fi:0,fo:0};if(URLS[t+'|'+a])tmp.url=URLS[t+'|'+a];if(q)tmp.q=q;if(pl)tmp.pl=pl;$('edit').dataset.id='';play(tmp.id,0);if(innerWidth<860)$('deck').scrollIntoView({behavior:'smooth',block:'start'})};
-$('chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b){tab=b.dataset.k;lib()}});
+$('chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b){tab=b.dataset.k;if(qs&&!SPA.ok){qs='';$('q').value=''}lib()}});
+let qT;$('q').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{qs=e.target.value.trim();lib()},150)});
 $('themes').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;th=THEMES.find(t=>t.k===b.dataset.t);wl=Object.keys(wtabs())[0];try{localStorage.setItem('djtheme2',th.k)}catch(x){}lib()});
 $('cards').addEventListener('click',e=>{
+  if(e.target.closest('#spLogin')){spLogin();return}
+  const st=e.target.closest('[data-st]');if(st){const x=spRes.tracks[+st.dataset.st];tmp={id:'tmp'+(uid++),scene:tab,t:x.t,a:x.a,in:0,out:null,fi:0,fo:0,sid:x.id};$('edit').dataset.id='';play(tmp.id,0);return}
+  const sta=e.target.closest('[data-sta]');if(sta){const x=spRes.tracks[+sta.dataset.sta],whole=tab==='warm'||tab==='end'||tab==='talk';const n=mk(tab,x.t,x.a,0,whole?null:30,whole?2:0,whole?6:3);n.sid=x.id;insert(n);done(sta);return}
+  const sl=e.target.closest('[data-sl]');if(sl){const x=spRes.lists[+sl.dataset.sl];preview(tab,x.t,'Spotify 歌單',null,x.id);return}
+  const sla=e.target.closest('[data-sla]');if(sla){const x=spRes.lists[+sla.dataset.sla],n=mk(tab,x.t,'Spotify 歌單',0,null,0,0);n.pl=x.id;insert(n);done(sla);return}
+  const sr=e.target.closest('[data-sr]');if(sr){const h=hits[+sr.dataset.sr];if(h.pl)preview('talk',h.t,h.a,null,h.pl);else preview(h.scene,h.t,h.a);return}
+  const sa=e.target.closest('[data-sa]');if(sa){const h=hits[+sa.dataset.sa];let n;if(h.pl){n=mk('talk',h.t,h.a,0,null,0,0);n.pl=h.pl}else{const whole=h.scene==='warm'||h.scene==='end'||h.use==='整首';n=mk(h.scene,h.t,h.a,0,whole?null:30,whole?2:0,whole?6:3);const u=URLS[h.t+'|'+h.a];if(u)n.url=u}insert(n);done(sa);return}
   const l=e.target.closest('[data-l]');if(l){wl=l.dataset.l;lib();return}
   const WT=wtabs(),W=WT[wl],list=th.lib[tab]||LIB[tab];
   const pw=e.target.closest('[data-pw]');if(pw){const r=W.s[+pw.dataset.pw];preview('warm',r[0],r[1]);return}
@@ -538,7 +607,7 @@ $('ownForm').addEventListener('submit',e=>{e.preventDefault();
   else if(/^https:\/\//.test(u)){n.url=u;note+=' 播放時從播放台的連結打開；要播片段請載入音檔。'}
   else if(u){note='連結要以 https:// 開頭，已先加入歌名。'}
   insert(n);$('ownT').value='';$('ownA').value='';$('ownU').value='';$('ownMsg').textContent=note});
-lib();render();
+spBoot();lib();render();
 }
 </script>
 
