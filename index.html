@@ -142,6 +142,10 @@ body.ktv .booth,body.ktv .lib,body.ktv .keys,body.ktv #mode{display:none}
 .kres .qt{font-size:14px}
 .kres .kb{display:flex;flex-direction:column;gap:6px;flex:none}
 .klist li .qt{font-size:15px}
+.kchart li{gap:8px}
+.kchart .btn{flex:none}
+.krank{width:26px;flex:none;text-align:right;font-weight:900;color:var(--photo);font-variant-numeric:tabular-nums}
+.kcol .rh{margin-top:20px}
 @media(max-width:900px){.ktvwrap{grid-template-columns:minmax(0,1fr)}.topr{align-items:flex-start}}
 .tlabel{font-size:13px;color:var(--mute);margin-top:14px}
 .chip.th{--c:var(--ink)}
@@ -215,6 +219,9 @@ tr.m30 td{border-bottom:2px solid var(--c)}
         <button class="btn" id="kVd" aria-label="音量變小">音量 −</button><button class="btn" id="kVu" aria-label="音量變大">音量 ＋</button><button class="btn" id="kFs">⛶ 全螢幕</button>
       </div>
       <div class="alert on" id="kMsg" aria-live="polite"></div>
+      <h3 class="rh">待唱清單 <span class="pm" id="kCount"></span></h3>
+      <ol class="ql klist" id="kList"></ol>
+      <button class="btn sm" id="kClear">清空待唱</button>
     </div>
     <div class="kside">
       <h3 class="rh">點歌</h3>
@@ -222,9 +229,10 @@ tr.m30 td{border-bottom:2px solid var(--c)}
       <div class="ksfx"><span class="pm">搜尋時加上：</span><span id="kSfx" class="chips sub"></span></div>
       <div id="kRes"></div>
       <form id="kPaste" class="kform" autocomplete="off"><input id="ku" inputmode="url" placeholder="或貼 YouTube 影片網址點歌"><button class="btn" type="submit">點歌</button></form>
-      <h3 class="rh">待唱清單 <span class="pm" id="kCount"></span></h3>
-      <ol class="ql klist" id="kList"></ol>
-      <button class="btn sm" id="kClear">清空待唱</button>
+      <h3 class="rh">排行榜</h3>
+      <div id="kChartTabs" class="chips sub"></div>
+      <p class="pm" id="kChartNote"></p>
+      <ol class="ql kchart" id="kChart"></ol>
     </div>
   </section>
 </div></div>
@@ -685,7 +693,15 @@ $('ownForm').addEventListener('submit',e=>{e.preventDefault();
 const YT_KEY='';
 let MODE=ls.get('mode')==='ktv'?'ktv':'dj',KP=null,KPready=false,KC=null,kPend=false,kRes=[],kNextTok='',kQ='',kBusy=false,kErr='';
 let KQ=[];try{KQ=JSON.parse(ls.get('ktvq')||'[]')}catch(e){}if(!Array.isArray(KQ))KQ=[];
-let kSfx=ls.get('ktvsfx')||'KTV';const SFX=['KTV','伴奏','原版'];
+let kSfx=ls.get('ktvsfx')||'KTV';const SFX=['KTV','官方 KTV','伴奏','原版'];
+const KCH={zh:{n:'國語熱門',note:'綜合 2026 年近期錢櫃、好樂迪點播和 KKBOX 熱門榜整理，名次僅供參考。',s:[['七里香','周杰倫'],['太陽與地球','盧廣仲'],['擱淺','周杰倫'],['甲乙丙丁Strangers','李佳薇'],['淚橋','伍佰 & China Blue'],['我懷念的','孫燕姿'],['十年','陳奕迅'],['心中的日月','王力宏'],['與我無關','阿冗'],['太陽','邱振哲'],['欲落未落','DIOR 大穎'],['海嶼你','馬也_Crabbit'],['看著我的眼睛說','張遠'],['天黑請閉眼','陳零九 & 邱鋒澤'],['怎麼了','周興哲'],['愛錯','王力宏'],['一萬零一次沉溺','李佳薇'],['沒有人像我一樣','宇宙人'],['幸福在歌唱','A-Lin'],['想見你想見你想見你','八三夭']]},
+ tw:{n:'台語點播',note:'好樂迪台語點播排行，2026/11/10 – 11/16。',s:[['若無你我欲去佗位','黃奇斌'],['必巡','曾瑋中'],['運轉人生','邱軍'],['人生的歌','黃乙玲'],['雲中月圓','王識賢 & 孫淑媚'],['閣愛妳一擺','茄子蛋'],['浪流連','茄子蛋'],['愛到無命不知驚','王識賢'],['我喜歡你','芒果醬'],['浪子回頭','茄子蛋'],['做你的格','玖壹壹'],['伊的身邊已經有別人 2023','許富凱 & 血肉果汁機'],['你講的話','江蕙'],['夢中的情話','江蕙 & 阿杜'],['愛情你比我想的閣較偉大','茄子蛋'],['刺到整身軀','春風 & 潤少 & 970'],['心裡有針','蕭煌奇'],['上水的花','蕭煌奇'],['癡情的男子漢','洋蔥 & 睿兒'],['作陣彼一暝','阿吉仔']]},
+ party:{n:'團康嗨歌',note:'適合大家一起唱、一起跳的歌。',s:[['派對動物','五月天'],['倔強','五月天'],['來個蹦蹦','玖壹壹'],['姊姊','謝金燕'],['三天三夜','張惠妹'],['舞孃','蔡依林'],['大藝術家','蔡依林'],['Mojito','周杰倫'],['帶我去找夜生活','告五人'],['萬事大吉','理想混蛋'],['乾杯','五月天'],['朋友','周華健'],['浪流連','茄子蛋'],['向前走','林強'],['愛拚才會贏','葉啟田']]}};
+let kTab=ls.get('ktvchart')||'zh';if(!KCH[kTab])kTab='zh';
+async function kPickFirst(t,a,first){if(!YT_KEY){kMsg('還沒設定 YouTube 搜尋金鑰，排行榜暫時不能點歌');return}kMsg('幫你找「'+t+'」的 KTV 版本…');
+  try{const r=await fetch('https://www.googleapis.com/youtube/v3/search?'+new URLSearchParams({part:'snippet',type:'video',videoEmbeddable:'true',maxResults:'1',q:t+' '+a+' '+kSfx,regionCode:'TW',key:YT_KEY}));const j=await r.json();
+    const it=r.ok&&j.items&&j.items[0];if(!it){kMsg(r.ok?'找不到「'+t+'」的影片，按「選版本」自己挑':'搜尋失敗（代碼 '+r.status+'）');return}
+    kAdd({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||'')},first)}catch(e){kMsg('搜尋失敗，請稍後再試')}}
 const kSave=()=>ls.set('ktvq',JSON.stringify(KQ));
 const kMsg=t=>{$('kMsg').textContent=t||''};
 const deEnt=t=>{const d=document.createElement('textarea');d.innerHTML=t;return d.value};
@@ -706,6 +722,9 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   $('kTicker').textContent=KQ.length?'下一首：'+KQ[0].t:(KC?'待唱清單是空的，快去點歌':'');
   $('kCount').textContent=KQ.length?'共 '+KQ.length+' 首':'';
   $('kList').innerHTML=KQ.length?KQ.map((x,i)=>'<li><span class="qt">'+(i+1)+'. '+esc(x.t)+(x.ch?' <small>'+esc(x.ch)+'</small>':'')+'</span>'+(i?'<button class="btn sm" data-kup="'+i+'">插播</button>':'')+'<button class="btn sm" data-kdel="'+i+'" aria-label="刪除">刪除</button></li>').join(''):'<li class="pm">還沒有點歌</li>';
+  $('kChartTabs').innerHTML=Object.keys(KCH).map(k=>'<button class="chip" style="--c:var(--photo)" aria-pressed="'+(k===kTab)+'" data-kct="'+k+'">'+KCH[k].n+'</button>').join('');
+  $('kChartNote').textContent=KCH[kTab].note;
+  $('kChart').innerHTML=KCH[kTab].s.map((x,i)=>'<li><span class="krank">'+(i+1)+'</span><span class="qt">'+esc(x[0])+' <small>'+esc(x[1])+'</small></span><button class="btn sm pl" style="--c:var(--photo)" data-kca="'+i+'">點歌</button><button class="btn sm" data-kcv="'+i+'">選版本</button></li>').join('');
   $('kSfx').innerHTML=SFX.map(x=>'<button class="chip" aria-pressed="'+(x===kSfx)+'" data-ksfx="'+x+'">'+x+'</button>').join('');
   let h='';
   if(!YT_KEY)h='<p class="pm">還沒設定 YouTube 搜尋金鑰，所以暫時不能搜尋。可以先在下面貼影片網址點歌。</p>';
@@ -729,6 +748,10 @@ $('kForm').addEventListener('submit',e=>{e.preventDefault();kQ=$('kq').value.tri
 $('kPaste').addEventListener('submit',e=>{e.preventDefault();const u=$('ku').value.trim();if(u){kPaste(u);$('ku').value=''}});
 $('kRes').addEventListener('click',e=>{const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(kRes[+a.dataset.kadd],false);else if(b)kAdd(kRes[+b.dataset.kins],true);else if(e.target.closest('#kMore'))kSearch(true)});
 $('kSfx').addEventListener('click',e=>{const b=e.target.closest('[data-ksfx]');if(!b)return;kSfx=b.dataset.ksfx;ls.set('ktvsfx',kSfx);if(kQ)kSearch(false);else kRender()});
+$('kChartTabs').addEventListener('click',e=>{const b=e.target.closest('[data-kct]');if(b){kTab=b.dataset.kct;ls.set('ktvchart',kTab);kRender()}});
+$('kChart').addEventListener('click',e=>{const a=e.target.closest('[data-kca]'),v=e.target.closest('[data-kcv]');
+  if(a){const y=KCH[kTab].s[+a.dataset.kca];kPickFirst(y[0],y[1],false)}
+  if(v){const y=KCH[kTab].s[+v.dataset.kcv];if(!YT_KEY){kMsg('還沒設定 YouTube 搜尋金鑰，暫時不能選版本');return}kQ=y[0]+' '+y[1];$('kq').value=kQ;kSearch(false);$('kq').scrollIntoView({behavior:'smooth',block:'start'})}});
 $('kList').addEventListener('click',e=>{const u=e.target.closest('[data-kup]'),d=e.target.closest('[data-kdel]');
   if(u){const x=KQ.splice(+u.dataset.kup,1)[0];KQ.unshift(x);kSave();kMsg('已插播「'+x.t+'」');kRender()}
   if(d){KQ.splice(+d.dataset.kdel,1);kSave();kRender()}});
