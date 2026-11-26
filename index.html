@@ -552,7 +552,7 @@ function renderSearch(){hits=searchHits(qs);$('qn').textContent='選歌庫找到
   $('cards').innerHTML=SPH+'<h3 class="rh">選歌庫裡的</h3><div class="cards">'+hits.slice(0,80).map((e,i)=>{const c=sc(e.scene);
     const play=e.pl?(spMode==='embed'?'<button class="btn sm pl" data-sr="'+i+'">▶ 播放</button>':'<a class="btn sm pl" href="https://open.spotify.com/playlist/'+e.pl+'" target="_blank" rel="noopener">▶ Spotify</a>'):pbtn(e.t,e.a,'data-sr="'+i+'"');
     return '<div class="card" style="--c:'+c.c+'"><div><span class="sbadge">'+c.n+'</span></div><div class="ct">'+esc(e.t)+'</div><div class="pm">'+esc(e.a)+'</div><div class="src">'+esc(e.src.slice(0,3).join('、')+(e.src.length>3?' 等':''))+'</div>'+(e.clap?'<div class="clap">'+esc(e.clap)+'</div>':'')+(e.why?'<p class="why">'+(e.use&&e.use!=='歌單'?'<span class="use">'+esc(e.use)+'</span>':'')+esc(e.why)+'</p>':'<p class="why"></p>')+'<div class="links">'+play+'<button class="btn sm" data-sa="'+i+'">加入流程</button></div></div>'}).join('')+'</div>'+(hits.length>80?'<p class="pm">只列出前 80 首，再多打一個關鍵字可以縮小範圍。</p>':'')}
-function spHtml(){if(!SPA.on)return '';
+function spHtml(){if(!SPA.on)return '<div class="sphint"><b>這裡只搜得到選歌庫裡的歌。</b><span class="pm">要搜 Spotify 上所有的歌，請到你的選歌台網站搜尋。</span><a class="btn sm pl" href="https://s8902114-art.github.io/dj-ev1ebf52/" target="_blank" rel="noopener">打開我的選歌台網站</a></div>';
   if(!SPA.ok)return '<div class="sphint"><b>想搜尋 Spotify 上所有的歌？</b><span class="pm">連結一次你的 Spotify 帳號就能搜。</span><button class="btn sm pl" id="spLogin">連結 Spotify</button></div>';
   if(spQ!==qs&&!spBusy)spSearch(qs);
   if(!spRes||spBusy||spQ!==qs)return '<h3 class="rh">Spotify 上的</h3><p class="pm">搜尋中…</p>';
