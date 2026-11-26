@@ -531,11 +531,12 @@ async function spBoot(){if(!SPA.on)return;const u=new URL(location.href),code=u.
 let spQ='',spRes=null,spBusy=false;
 async function spSearch(q){if(!SPA.ok||!q){spRes=null;return}spQ=q;spBusy=true;
   try{const at=await spToken();if(!at){SPA.ok=false;spBusy=false;lib();return}
-    const r=await fetch('https://api.spotify.com/v1/search?'+new URLSearchParams({q,type:'track,playlist',limit:'20',market:'TW'}),{headers:{Authorization:'Bearer '+at}});
-    const j=r.ok?await r.json():null;if(q!==spQ)return;
+    const r=await fetch('https://api.spotify.com/v1/search?'+new URLSearchParams({q,type:'track,playlist',limit:'10'}),{headers:{Authorization:'Bearer '+at}});
+    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(x){}if(r.status===401){ls.del('sp_at');ls.del('sp_exp')}spRes={err:r.status,msg:m};spBusy=false;if(qs===q)renderSearch();return}
+    const j=await r.json();if(q!==spQ)return;
     spRes={tracks:((j&&j.tracks&&j.tracks.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:x.artists.map(y=>y.name).join(', '),ms:x.duration_ms})),
       lists:((j&&j.playlists&&j.playlists.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:(x.owner&&x.owner.display_name)||'',n:x.tracks&&x.tracks.total}))}}
-  catch(e){spRes={err:1}}spBusy=false;if(qs===q)renderSearch()}
+  catch(e){spRes={err:'連線',msg:String(e&&e.message||'')}}spBusy=false;if(qs===q)renderSearch()}
 const SYN={warm:'暖場 背景 等待 入座',enter:'進場 登場 開場 出場',talk:'討論 填表 輕音樂 純音樂 背景 讀書',mid:'中場 用餐 遊戲 休息',award:'頒獎 表揚 抽獎 得獎',photo:'拍照 合照 慶生',end:'散場 送客 結尾 收尾'};
 const IDX=(()=>{const m=new Map(),add=(t,a,scene,src,x)=>{const k=t+'|'+a+'|'+scene;let e=m.get(k);if(!e){e={t,a,scene,src:[],why:'',clap:'',use:''};m.set(k,e)}if(!e.src.includes(src))e.src.push(src);if(x){e.why=e.why||x[3]||'';e.clap=e.clap||x[4]||'';e.use=e.use||x[2]||''}};
   SC.forEach(c=>(LIB[c.k]||[]).forEach(r=>add(r[0],r[1],c.k,'通用・'+c.n,r)));
@@ -556,7 +557,7 @@ function spHtml(){if(!SPA.on)return '<div class="sphint"><b>這裡只搜得到�
   if(!SPA.ok)return '<div class="sphint"><b>想搜尋 Spotify 上所有的歌？</b><span class="pm">連結一次你的 Spotify 帳號就能搜。</span><button class="btn sm pl" id="spLogin">連結 Spotify</button></div>';
   if(spQ!==qs&&!spBusy)spSearch(qs);
   if(!spRes||spBusy||spQ!==qs)return '<h3 class="rh">Spotify 上的</h3><p class="pm">搜尋中…</p>';
-  if(spRes.err)return '<h3 class="rh">Spotify 上的</h3><p class="pm">Spotify 搜尋失敗，稍後再試。</p>';
+  if(spRes.err)return '<h3 class="rh">Spotify 上的</h3><p class="pm">Spotify 搜尋失敗（代碼 '+esc(String(spRes.err))+(spRes.msg?'：'+esc(spRes.msg):'')+'）。'+(spRes.err===401?'請重新整理頁面再連結一次 Spotify。':'請把這行截圖給 Claude。')+'</p>'+(spRes.err===401?'<button class="btn sm pl" id="spLogin">重新連結 Spotify</button>':'');
   const add='加入「'+sc(tab).n+'」';
   const T=spRes.tracks.map((x,i)=>'<li><button class="qb" data-st="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>'+esc(x.a)+' · '+fmt(x.ms/1000)+'</small></span><button class="btn sm" data-sta="'+i+'">'+add+'</button></li>').join('');
   const L=spRes.lists.slice(0,8).map((x,i)=>'<li><button class="qb" data-sl="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>歌單 · '+esc(x.a)+(x.n?' · '+x.n+' 首':'')+'</small></span><button class="btn sm" data-sla="'+i+'">'+add+'</button></li>').join('');
