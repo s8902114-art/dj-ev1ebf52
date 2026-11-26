@@ -510,7 +510,7 @@ const pbtn=(t,a,attr)=>{const id=(SPID[t+'|'+a]||[])[0];
 const yt=(t,a)=>'<a href="https://www.youtube.com/results?search_query='+q2(t,a)+'" target="_blank" rel="noopener">YouTube</a>';
 let qs='',hits=[];
 /* Spotify search across all of Spotify: PKCE login, works only on the hosted https site */
-const SP_CLIENT='';
+const SP_CLIENT='3845d9365e2d46329cac796d814cd080';
 const SPA={on:!!SP_CLIENT&&location.protocol==='https:'&&!/claude\.ai$/.test(location.hostname),redirect:location.origin+location.pathname};
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
