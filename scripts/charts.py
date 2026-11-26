@@ -31,8 +31,21 @@ def parse(page):
     rng = re.search(r"(20\d\d/\d{1,2}/\d{1,2})\s*[~～-]\s*(20\d\d/\d{1,2}/\d{1,2})", page)
     return songs, (rng.group(1) + " – " + rng.group(2)) if rng else ""
 
+DEBUG_JS = [
+    ("holiday_SongList.js", "https://www.holiday.com.tw/js/SongInfo/SongList.min.js?2020100602"),
+    ("holiday_SongUtil.js", "https://www.holiday.com.tw/js/SongInfo/SongUtil.min.js?2020092201"),
+    ("holiday_SongTempletUtil.js", "https://www.holiday.com.tw/js/SongInfo/SongTempletUtil.min.js?2026082101"),
+    ("cashbox_KTVMusic.js", "https://www.cashboxparty.com/js/KTV.KTVMusic.min.js?2026070701"),
+    ("cashbox_ktvmusic.ktv.js", "https://www.cashboxparty.com/Scripts/ktvmusic.ktv.min.js"),
+]
+
 def main():
     os.makedirs("raw", exist_ok=True)
+    for name, url in DEBUG_JS:
+        try:
+            open("raw/" + name, "w", encoding="utf-8").write(fetch(url))
+        except Exception as e:
+            print(name, "failed:", e)
     out = {"updated": datetime.datetime.utcnow().strftime("%Y-%m-%d"), "charts": {}}
     for key, (name, url) in PAGES.items():
         try:
