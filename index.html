@@ -16,6 +16,7 @@
    LAYOUT laptop: rundown pads on the left, deck sticky on the right; phone: deck first, pads below, library at the bottom */
 :root{color-scheme:dark;--bg:#191815;--panel:#23211d;--line:#3a3731;--ink:#f3efe6;--mute:#b3ab9c;--warm:#e8b86b;--enter:#ff6a55;--mid:#c6e05a;--award:#ffd23f;--photo:#ff94bb;--end:#86bdff;--talk:#7fd6c2}
 *{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans TC",system-ui,sans-serif;margin:0;overflow-x:clip}
 .band{padding-block:clamp(20px,3vw,40px);padding-left:max(5vw,16px,env(safe-area-inset-left,0px));padding-right:max(5vw,16px,env(safe-area-inset-right,0px))}
 .wrap{max-width:1240px;margin:0 auto}
@@ -147,6 +148,27 @@ body.ktv .booth,body.ktv .lib,body.ktv .keys,body.ktv #mode{display:none}
 .krank{width:26px;flex:none;text-align:right;font-weight:900;color:var(--photo);font-variant-numeric:tabular-nums}
 .kcol .rh{margin-top:20px}
 @media(max-width:900px){.ktvwrap{grid-template-columns:minmax(0,1fr)}.topr{align-items:flex-start}}
+.kqr{position:absolute;right:10px;top:10px;background:#fff;color:#191815;border-radius:10px;padding:6px 6px 4px;text-align:center;font-size:12px;font-weight:700;line-height:1.3;z-index:2}
+.kqr img,.kqr canvas{display:block;width:96px;height:96px}
+.kover{position:fixed;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center;z-index:50;padding:16px}
+.kbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;max-width:420px;width:100%;text-align:center}
+.kbox h2{margin:0 0 6px;font-size:26px}
+.kqrbig{background:#fff;border-radius:12px;padding:14px;display:inline-block;margin:12px 0}
+.kqrbig img,.kqrbig canvas{display:block;width:240px;height:240px}
+.kurl{overflow-wrap:anywhere;font-size:13px}
+.kchk{display:flex;gap:8px;align-items:center;justify-content:center;margin:10px 0;font-size:14px}
+.kchk input{width:auto}
+.kbox .row2{justify-content:center}
+#guest{display:none}
+body.guest .band:not(#guest){display:none}
+body.guest #guest{display:block}
+.gwrap{max-width:560px}
+.gtitle{font-size:36px}
+.gform{display:grid;gap:10px;margin:14px 0}
+.gform label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
+.gform .btn{min-height:52px;font-size:18px}
+.gnow{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.by{color:var(--photo);font-weight:700}
 .tlabel{font-size:13px;color:var(--mute);margin-top:14px}
 .chip.th{--c:var(--ink)}
 #themes{margin:6px 0 8px}
@@ -212,11 +234,11 @@ tr.m30 td{border-bottom:2px solid var(--c)}
 
   <section id="ktv" class="ktvwrap" aria-label="KTV">
     <div class="kcol">
-      <div class="kstage" id="kStage"><div id="ktvEmbed"></div><div class="kidle" id="kIdle">點一首歌開始唱</div><div class="kticker" id="kTicker"></div></div>
+      <div class="kstage" id="kStage"><div id="ktvEmbed"></div><div class="kidle" id="kIdle">點一首歌開始唱</div><div class="kqr" id="kQrMini" hidden><div id="kQrMiniBox"></div><span>掃碼點歌</span></div><div class="kticker" id="kTicker"></div></div>
       <div class="know"><div class="np">正在唱</div><div class="nt" id="kNow">—</div><div class="na" id="kNowA"></div></div>
       <div class="kctl">
         <button class="btn" id="kPause">⏯ 暫停</button><button class="btn" id="kRe">↺ 重唱</button><button class="btn fade" id="kCut">⏭ 切歌</button>
-        <button class="btn" id="kVd" aria-label="音量變小">音量 −</button><button class="btn" id="kVu" aria-label="音量變大">音量 ＋</button><button class="btn" id="kFs">⛶ 全螢幕</button>
+        <button class="btn" id="kVd" aria-label="音量變小">音量 −</button><button class="btn" id="kVu" aria-label="音量變大">音量 ＋</button><button class="btn" id="kFs">⛶ 全螢幕</button><button class="btn" id="kSwap">原唱／伴唱</button><button class="btn" id="kRoomBtn">掃碼點歌</button>
       </div>
       <div class="alert on" id="kMsg" aria-live="polite"></div>
       <h3 class="rh">待唱清單 <span class="pm" id="kCount"></span></h3>
@@ -235,6 +257,22 @@ tr.m30 td{border-bottom:2px solid var(--c)}
       <ol class="ql kchart" id="kChart"></ol>
     </div>
   </section>
+</div></div>
+
+<div class="kover" id="kOver" hidden><div class="kbox"><h2>掃碼點歌</h2><p class="pm">用手機相機掃這個 QR Code，就能點歌。點的歌會自動排進待唱清單。</p><div id="kQrBig" class="kqrbig"></div><p class="pm kurl" id="kRoomUrl"></p><label class="kchk"><input type="checkbox" id="kMiniOn"> 在唱歌畫面角落一直顯示 QR Code</label><div class="row2"><button class="btn sm" id="kRoomNew">換一個新的點歌碼</button><button class="btn sm pl" style="--c:var(--photo)" id="kOverClose">關閉</button></div></div></div>
+
+<div class="band" id="guest"><div class="wrap gwrap">
+  <h1 class="gtitle">掃碼點歌</h1>
+  <div class="gnow"><div class="np">正在唱</div><div class="nt" id="gNow">—</div></div>
+  <form id="gForm" class="gform" autocomplete="off">
+    <label>歌名<input id="gT" required placeholder="例如：倔強"></label>
+    <label>歌手（可不填）<input id="gA" placeholder="例如：五月天"></label>
+    <label>你的名字（可不填）<input id="gBy" placeholder="會顯示在待唱清單上"></label>
+    <button class="btn pl" style="--c:var(--photo)" type="submit" id="gSend">送出點歌</button>
+  </form>
+  <div class="alert on" id="gMsg" aria-live="polite"></div>
+  <h3 class="rh">或從排行榜點</h3><div id="gTabs" class="chips sub"></div><ol class="ql kchart" id="gChart"></ol>
+  <h3 class="rh">待唱清單</h3><ol class="ql" id="gQ"><li class="pm">連線中…</li></ol>
 </div></div>
 
 <div class="band lib"><div class="wrap">
@@ -708,10 +746,10 @@ async function ytFind(q,max,tok,prm0){const tries=prm0?[prm0]:[
     if(!r.ok)return{err:'代碼 '+r.status+((j.error&&j.error.message)?'：'+j.error.message:'')};
     last={items:j.items||[],next:j.nextPageToken||'',prm:t,loose:t!==tries[0]};if(last.items.length)return last}
   return last||{items:[],next:''}}
-async function kPickFirst(t,a,first){if(!YT_KEY){kMsg('還沒設定 YouTube 搜尋金鑰，排行榜暫時不能點歌');return}kMsg('幫你找「'+t+'」的 KTV 版本…');
+async function kPickFirst(t,a,first,by){if(!YT_KEY){kMsg('還沒設定 YouTube 搜尋金鑰，排行榜暫時不能點歌');return}kMsg('幫你找「'+t+'」的 KTV 版本…');
   try{const g=await ytFind(t+' '+a,1);if(g.err){kMsg('搜尋失敗（'+g.err+'）');return}const it=g.items[0];
     if(!it){kMsg('找不到「'+t+'」的影片，按「選版本」換個關鍵字試試');return}
-    kAdd({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||'')},first)}catch(e){kMsg('搜尋失敗，請稍後再試')}}
+    kAdd({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),q:t+' '+a,by:by||''},first)}catch(e){kMsg('搜尋失敗，請稍後再試')}}
 const kSave=()=>ls.set('ktvq',JSON.stringify(KQ));
 const kMsg=t=>{$('kMsg').textContent=t||''};
 const deEnt=t=>{const d=document.createElement('textarea');d.innerHTML=t;return d.value};
@@ -724,14 +762,14 @@ function kLoad(){if(!KC)return;if(!KP||!KPready){kPend=true;kInit();return}try{K
 function kCut(){KC=KQ.length?KQ.shift():null;kSave();if(KC)kLoad();else{try{KP&&KP.stopVideo()}catch(e){}kMsg('待唱清單唱完了，再點歌吧！')}kRender()}
 function kAdd(song,first){if(KQ.some(x=>x.id===song.id)&&!first){kMsg('「'+song.t+'」已經在待唱清單裡了');return}
   KQ=KQ.filter(x=>x.id!==song.id);if(first)KQ.unshift(song);else KQ.push(song);kSave();
-  if(!KC){kCut();kMsg('開始唱「'+song.t+'」');return}kMsg(first?'已插播「'+song.t+'」，下一首就唱':'已點「'+song.t+'」，排在第 '+KQ.length+' 首');kRender()}
+  if(!KC){kCut();kMsg('開始唱「'+song.t+'」'+(song.by?'（'+song.by+' 點的）':''));return}kMsg((song.by?song.by+' ':'')+(first?'插播「'+song.t+'」，下一首就唱':'點了「'+song.t+'」，排在第 '+KQ.length+' 首'));kRender()}
 function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   const idle=$('kIdle');idle.style.display=KC&&yOK?'none':'grid';
   idle.innerHTML=!yOK?(ytMode==='wait'?'載入中…':'KTV 模式要在你的選歌台網站使用：<br><a href="https://s8902114-art.github.io/dj-ev1ebf52/" target="_blank" rel="noopener">打開我的選歌台網站</a>'):'在右邊點一首歌開始唱 🎤';
-  $('kNow').textContent=KC?KC.t:'—';$('kNowA').textContent=KC?KC.ch||'':'';
+  $('kNow').textContent=KC?KC.t+(KC.by?'（'+KC.by+' 點的）':''):'—';try{kPub()}catch(e){}$('kNowA').textContent=KC?KC.ch||'':'';
   $('kTicker').textContent=KQ.length?'下一首：'+KQ[0].t:(KC?'待唱清單是空的，快去點歌':'');
   $('kCount').textContent=KQ.length?'共 '+KQ.length+' 首':'';
-  $('kList').innerHTML=KQ.length?KQ.map((x,i)=>'<li><span class="qt">'+(i+1)+'. '+esc(x.t)+(x.ch?' <small>'+esc(x.ch)+'</small>':'')+'</span>'+(i?'<button class="btn sm" data-kup="'+i+'">插播</button>':'')+'<button class="btn sm" data-kdel="'+i+'" aria-label="刪除">刪除</button></li>').join(''):'<li class="pm">還沒有點歌</li>';
+  $('kList').innerHTML=KQ.length?KQ.map((x,i)=>'<li><span class="qt">'+(i+1)+'. '+esc(x.t)+(x.by?' <span class="by">'+esc(x.by)+' 點</span>':'')+(x.ch?' <small>'+esc(x.ch)+'</small>':'')+'</span>'+(i?'<button class="btn sm" data-kup="'+i+'">插播</button>':'')+'<button class="btn sm" data-kdel="'+i+'" aria-label="刪除">刪除</button></li>').join(''):'<li class="pm">還沒有點歌</li>';
   $('kChartTabs').innerHTML=Object.keys(KCH).map(k=>'<button class="chip" style="--c:var(--photo)" aria-pressed="'+(k===kTab)+'" data-kct="'+k+'">'+KCH[k].n+'</button>').join('');
   $('kChartNote').textContent=KCH[kTab].note;
   $('kChart').innerHTML=KCH[kTab].s.map((x,i)=>'<li><span class="krank">'+(i+1)+'</span><span class="qt">'+esc(x[0])+' <small>'+esc(x[1])+'</small></span><button class="btn sm pl" style="--c:var(--photo)" data-kca="'+i+'">點歌</button><button class="btn sm" data-kcv="'+i+'">選版本</button></li>').join('');
@@ -751,12 +789,12 @@ async function kSearch(more){if(!YT_KEY||!kQ)return;kBusy=true;kErr='';if(!more)
   catch(e){kErr='連線失敗'}kBusy=false;kRender()}
 async function kPaste(u){const id=ytId(u);if(!id){kMsg('看不懂這個網址，請貼 YouTube 影片的網址');return}
   let t='自己點的歌',ch='';try{const r=await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+id));if(r.ok){const j=await r.json();t=j.title||t;ch=j.author_name||''}}catch(e){}
-  kAdd({id,t,ch})}
+  kAdd({id,t,ch,q:t})}
 $('modeDJ').onclick=()=>setMode('dj');$('modeKTV').onclick=()=>setMode('ktv');
 $('kForm').addEventListener('submit',e=>{e.preventDefault();kQ=$('kq').value.trim();kSearch(false)});
 $('kPaste').addEventListener('submit',e=>{e.preventDefault();const u=$('ku').value.trim();if(u){kPaste(u);$('ku').value=''}});
 $('kRes').addEventListener('submit',e=>{if(e.target.id!=='kKeyForm')return;e.preventDefault();const v=$('kKey').value.trim();if(!v)return;YT_KEY=v;ls.set('ytkey',v);kMsg('金鑰已儲存，可以開始搜尋點歌了');kRender()});
-$('kRes').addEventListener('click',e=>{if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(kRes[+a.dataset.kadd],false);else if(b)kAdd(kRes[+b.dataset.kins],true);else if(e.target.closest('#kMore'))kSearch(true)});
+$('kRes').addEventListener('click',e=>{if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(Object.assign({q:kQ},kRes[+a.dataset.kadd]),false);else if(b)kAdd(Object.assign({q:kQ},kRes[+b.dataset.kins]),true);else if(e.target.closest('#kMore'))kSearch(true)});
 $('kSfx').addEventListener('click',e=>{const b=e.target.closest('[data-ksfx]');if(!b)return;kSfx=b.dataset.ksfx;ls.set('ktvsfx',kSfx);if(kQ)kSearch(false);else kRender()});
 $('kChartTabs').addEventListener('click',e=>{const b=e.target.closest('[data-kct]');if(b){kTab=b.dataset.kct;ls.set('ktvchart',kTab);kRender()}});
 $('kChart').addEventListener('click',e=>{const a=e.target.closest('[data-kca]'),v=e.target.closest('[data-kcv]');
@@ -773,7 +811,55 @@ $('kVd').onclick=()=>{try{const v=Math.max(0,KP.getVolume()-10);KP.setVolume(v);
 $('kVu').onclick=()=>{try{const v=Math.min(100,KP.getVolume()+10);KP.setVolume(v);kMsg('音量 '+v)}catch(e){}};
 $('kFs').onclick=()=>{const st=$('kStage');try{if(document.fullscreenElement)document.exitFullscreen();else st.requestFullscreen().catch(()=>kMsg('這個瀏覽器不讓全螢幕'))}catch(e){kMsg('這個瀏覽器不讓全螢幕')}};
 document.body.classList.toggle('ktv',MODE==='ktv');$('modeDJ').setAttribute('aria-pressed',String(MODE==='dj'));$('modeKTV').setAttribute('aria-pressed',String(MODE==='ktv'));
-spBoot();lib();render();if(MODE==='ktv'){kInit();kRender()}
+/* 原唱／伴唱：換成同一首歌的另一個版本，從差不多同一秒接著播 */
+async function kSwap(){if(!KC){kMsg('先點一首歌');return}if(!YT_KEY){kMsg('要有搜尋金鑰才能切換版本');return}
+  let pos=0;try{pos=Math.floor(KP.getCurrentTime()||0)}catch(e){}
+  const want=KC.ver==='伴奏'?'導唱':'伴奏',base=KC.q||KC.t;kMsg('正在找「'+(want==='伴奏'?'伴奏':'原唱')+'」版本…');
+  try{let it=null;for(const q of want==='伴奏'?[base+' 伴奏',base+' 純伴奏 KTV']:[base+' KTV 導唱',base+' MV']){const g=await ytFind(q,5,'',{q});if(g.err){kMsg('搜尋失敗（'+g.err+'）');return}it=(g.items||[]).find(x=>x.id&&x.id.videoId&&x.id.videoId!==KC.id);if(it)break}
+    if(!it){kMsg('找不到另一個版本，這首可能只有一種');return}
+    KC=Object.assign({},KC,{id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),ver:want});
+    try{KP.loadVideoById({videoId:KC.id,startSeconds:pos})}catch(e){}
+    kMsg('已換成'+(want==='伴奏'?'伴奏':'原唱')+'版。不同版本前奏長短不一樣，時間可能差幾秒。');kRender()}catch(e){kMsg('切換失敗，請再試一次')}}
+$('kSwap').onclick=kSwap;
+/* 掃碼點歌：點歌訊息透過免費公開傳訊服務 ntfy.sh 傳到主機 */
+const SITE='https://s8902114-art.github.io/dj-ev1ebf52/',NTFY='https://ntfy.sh/';
+const rid=()=>{const c='abcdefghjkmnpqrstuvwxyz23456789';let r='';const a=crypto.getRandomValues(new Uint8Array(12));a.forEach(x=>r+=c[x%c.length]);return r};
+const GUEST=(location.hash.match(/(?:^#|&)guest=([a-z0-9]{8,})/)||[])[1]||'';
+let kRoom=ls.get('ktvroom')||'',kRoomOn=ls.get('ktvroomon')==='1',kES=null,kLastPub='',kPubT=null;
+let kSeen=new Set();try{kSeen=new Set(JSON.parse(ls.get('ktvseen')||'[]'))}catch(e){}
+const topic=r=>'djktv-'+r;
+const guestUrl=()=>SITE+'#guest='+kRoom;
+function loadQR(cb){if(window.QRCode)return cb();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';s.onload=cb;s.onerror=()=>kMsg('QR Code 工具載入失敗，請檢查網路');document.head.appendChild(s)}
+function drawQR(el,size){el.innerHTML='';loadQR(()=>{new QRCode(el,{text:guestUrl(),width:size,height:size,colorDark:'#191815',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})})}
+function kRoomStart(){if(!kRoom){kRoom=rid();ls.set('ktvroom',kRoom)}kRoomOn=true;ls.set('ktvroomon','1');kListen();kLastPub='';kPub()}
+function kListen(){if(kES){kES.close();kES=null}if(!kRoomOn||GUEST)return;
+  try{kES=new EventSource(NTFY+topic(kRoom)+'/sse?since=15m');kES.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(x){return}if(d.event!=='message'||kSeen.has(d.id))return;
+    kSeen.add(d.id);ls.set('ktvseen',JSON.stringify([...kSeen].slice(-300)));let m;try{m=JSON.parse(d.message)}catch(x){return}
+    if(m.type==='req'&&m.t){const by=String(m.by||'').slice(0,20);kPickFirst(String(m.t).slice(0,60),String(m.a||'').slice(0,40),false,by)}}}catch(e){}}
+function kPub(){if(!kRoomOn||GUEST)return;clearTimeout(kPubT);kPubT=setTimeout(()=>{const st=JSON.stringify({type:'state',now:KC?KC.t:'',nowBy:KC&&KC.by||'',q:KQ.slice(0,30).map(x=>({t:x.t,by:x.by||''}))});
+  if(st===kLastPub)return;kLastPub=st;fetch(NTFY+topic(kRoom),{method:'POST',body:st}).catch(()=>{})},700)}
+function kShowRoom(){kRoomStart();$('kOver').hidden=false;$('kRoomUrl').textContent=guestUrl();$('kMiniOn').checked=ls.get('ktvmini')!=='0';drawQR($('kQrBig'),240);kMini()}
+function kMini(){const on=kRoomOn&&ls.get('ktvmini')!=='0'&&!GUEST;$('kQrMini').hidden=!on;if(on&&!$('kQrMiniBox').firstChild)drawQR($('kQrMiniBox'),96)}
+$('kRoomBtn').onclick=kShowRoom;$('kOverClose').onclick=()=>{$('kOver').hidden=true};
+$('kOver').addEventListener('click',e=>{if(e.target.id==='kOver')$('kOver').hidden=true});
+$('kMiniOn').onchange=e=>{ls.set('ktvmini',e.target.checked?'1':'0');$('kQrMiniBox').innerHTML='';kMini()};
+let kNewC=false;$('kRoomNew').onclick=()=>{if(!kNewC){kNewC=true;$('kRoomNew').textContent='再按一次確認（舊的 QR Code 會失效）';setTimeout(()=>{kNewC=false;$('kRoomNew').textContent='換一個新的點歌碼'},3000);return}
+  kNewC=false;$('kRoomNew').textContent='換一個新的點歌碼';kRoom=rid();ls.set('ktvroom',kRoom);kListen();kLastPub='';kPub();$('kRoomUrl').textContent=guestUrl();drawQR($('kQrBig'),240);$('kQrMiniBox').innerHTML='';kMini()};
+/* 客人頁 */
+let gTab='zh',gLock=false;
+function gRender(st){if(st){$('gNow').textContent=st.now?st.now+(st.nowBy?'（'+st.nowBy+' 點的）':''):'還沒開始唱';
+    $('gQ').innerHTML=st.q&&st.q.length?st.q.map((x,i)=>'<li><span class="qt">'+(i+1)+'. '+esc(x.t)+(x.by?' <span class="by">'+esc(x.by)+' 點</span>':'')+'</span></li>').join(''):'<li class="pm">待唱清單是空的，快點歌！</li>'}
+  $('gTabs').innerHTML=Object.keys(KCH).map(k=>'<button class="chip" style="--c:var(--photo)" aria-pressed="'+(k===gTab)+'" data-gt="'+k+'">'+KCH[k].n+'</button>').join('');
+  $('gChart').innerHTML=KCH[gTab].s.map((x,i)=>'<li><span class="krank">'+(i+1)+'</span><span class="qt">'+esc(x[0])+' <small>'+esc(x[1])+'</small></span><button class="btn sm pl" style="--c:var(--photo)" data-gc="'+i+'">點這首</button></li>').join('')}
+async function gSend(t,a){if(gLock){$('gMsg').textContent='送太快了，等幾秒再點';return}const by=$('gBy').value.trim();ls.set('gby',by);gLock=true;setTimeout(()=>gLock=false,4000);
+  try{const r=await fetch(NTFY+topic(GUEST),{method:'POST',body:JSON.stringify({type:'req',t,a,by})});$('gMsg').textContent=r.ok?'已送出「'+t+'」！主持人那邊會自動排進待唱清單。':'送出失敗，請再試一次'}catch(e){$('gMsg').textContent='送出失敗，請檢查網路'}}
+if(GUEST){document.body.classList.add('guest');document.title='掃碼點歌';$('gBy').value=ls.get('gby')||'';gRender(null);
+  $('gForm').addEventListener('submit',e=>{e.preventDefault();const t=$('gT').value.trim();if(!t)return;gSend(t,$('gA').value.trim());$('gT').value='';$('gA').value=''});
+  $('gTabs').addEventListener('click',e=>{const b=e.target.closest('[data-gt]');if(b){gTab=b.dataset.gt;gRender(null)}});
+  $('gChart').addEventListener('click',e=>{const b=e.target.closest('[data-gc]');if(b){const x=KCH[gTab].s[+b.dataset.gc];gSend(x[0],x[1])}});
+  try{const es=new EventSource(NTFY+topic(GUEST)+'/sse?since=12h');es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(x){return}if(d.event!=='message')return;let m;try{m=JSON.parse(d.message)}catch(x){return}if(m.type==='state')gRender(m)};
+    es.onerror=()=>{if(!$('gQ').dataset.ok)$('gQ').innerHTML='<li class="pm">連不上，請確認網路後重新整理</li>'};es.onopen=()=>{$('gQ').dataset.ok='1';if($('gQ').textContent.includes('連線中'))$('gQ').innerHTML='<li class="pm">等主持人那邊更新清單…</li>'}}catch(e){}}
+spBoot();lib();render();if(MODE==='ktv'){kInit();kRender()}if(kRoomOn&&!GUEST){kListen();kMini()}
 }
 </script>
 
