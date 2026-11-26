@@ -271,7 +271,7 @@ tr.m30 td{border-bottom:2px solid var(--c)}
       <div class="know"><div class="np">正在唱</div><div class="nt" id="kNow">—</div><div class="na" id="kNowA"></div></div>
       <div class="kctl">
         <button class="btn" id="kPause">⏯ 暫停</button><button class="btn" id="kRe">↺ 重唱</button><button class="btn fade" id="kCut">⏭ 切歌</button>
-        <button class="btn" id="kVd" aria-label="音量變小">音量 −</button><button class="btn" id="kVu" aria-label="音量變大">音量 ＋</button><button class="btn" id="kFs">⛶ 全螢幕</button><button class="btn" id="kSwap">原唱／伴唱</button><button class="btn" id="kBk" aria-label="倒退兩秒">−2秒</button><button class="btn" id="kFw" aria-label="快轉兩秒">+2秒</button><button class="btn" id="kRoomBtn">掃碼點歌</button>
+        <button class="btn" id="kVd" aria-label="音量變小">音量 −</button><button class="btn" id="kVu" aria-label="音量變大">音量 ＋</button><button class="btn" id="kFs">⛶ 全螢幕</button><button class="btn" id="kSwap">原唱／伴唱</button><button class="btn" id="kBk" aria-label="倒退兩秒">−2秒</button><button class="btn" id="kFw" aria-label="快轉兩秒">+2秒</button><button class="btn" id="kAlign" hidden>對齊下一句</button><button class="btn" id="kLyBtn">歌詞畫面</button><button class="btn" id="kRoomBtn">掃碼點歌</button>
       </div>
       <div class="alert on" id="kMsg" aria-live="polite"></div>
       <h3 class="rh">待唱清單 <span class="pm" id="kCount"></span></h3>
@@ -856,10 +856,10 @@ const OCC='https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/',occP={};let t
 function occLoad(f){return occP[f]||(occP[f]=new Promise(res=>{const s=document.createElement('script');s.src=OCC+f;s.onload=()=>res(window.OpenCC||null);s.onerror=()=>res(null);document.head.appendChild(s);setTimeout(()=>res(null),20000)}))}
 async function getCN(){if(toCN)return toCN;const O=await occLoad('t2cn.js');try{toCN=O.Converter({from:'tw',to:'cn'})}catch(e){toCN=x=>x}return toCN}
 async function getTW(){if(toTW)return toTW;await getCN();const O=await occLoad('cn2t.js');try{toTW=O.Converter({from:'cn',to:'twp'})}catch(e){toTW=x=>x}return toTW}
-async function lrcFetch(t,a,sec){t=String(t||'').trim();const an=String(a||'').split(/\s*(?:&|＆|,|、|feat\.?|ft\.)\s*/i)[0].trim(),k=t+'|'+an;if(k in LRC)return LRC[k];
-  const api='https://lrclib.net/api/',ok=x=>x&&x.syncedLyrics&&(!sec||!x.duration||Math.abs(x.duration-sec)<=5);let L=null;
-  const find=async(tt,aa)=>{let j=null;if(sec){const r=await fetch(api+'get?'+new URLSearchParams({track_name:tt,artist_name:aa,duration:String(Math.round(sec))}));if(r.ok)j=await r.json()}
-    if(ok(j))return j;let arr=[];for(const prm of [{track_name:tt,artist_name:aa},{q:tt+' '+aa}]){const r=await fetch(api+'search?'+new URLSearchParams(prm));if(r.ok)arr=arr.concat(await r.json());if(arr.some(ok))break}
+async function lrcFetch(t,a,sec,tol){tol=tol||5;t=String(t||'').trim();const an=String(a||'').split(/\s*(?:&|＆|,|、|feat\.?|ft\.)\s*/i)[0].trim(),k=t+'|'+an+'|'+tol;if(k in LRC)return LRC[k];
+  const api='https://lrclib.net/api/',ok=x=>x&&x.syncedLyrics&&(!sec||!x.duration||Math.abs(x.duration-sec)<=tol);let L=null;
+  const find=async(tt,aa)=>{let j=null;if(sec&&aa){const r=await fetch(api+'get?'+new URLSearchParams({track_name:tt,artist_name:aa,duration:String(Math.round(sec))}));if(r.ok)j=await r.json()}
+    if(ok(j))return j;let arr=[];for(const prm of aa?[{track_name:tt,artist_name:aa},{q:tt+' '+aa}]:[{track_name:tt},{q:tt}]){const r=await fetch(api+'search?'+new URLSearchParams(prm));if(r.ok)arr=arr.concat(await r.json());if(arr.some(ok))break}
     return arr.filter(ok).sort((x,y)=>Math.abs((x.duration||0)-sec)-Math.abs((y.duration||0)-sec))[0]||null};
   try{const ts=[t],tb=t.replace(/\s*[（(\[【].*$/,'').trim(),tl=/[㐀-鿿]/.test(tb)?tb.replace(/\s*[A-Za-z][A-Za-z0-9 '&.!?,-]*$/,'').trim():tb;[tb,tl].forEach(x=>{if(x&&!ts.includes(x))ts.push(x)});
     let j=null;for(const tt of ts){j=await find(tt,an);if(j)break;if(/[㐀-鿿]/.test(tt+an)){const cn=await getCN(),t2=cn(tt),a2=cn(an);if(t2!==tt||a2!==an)j=await find(t2,a2)}if(j)break}
@@ -876,19 +876,19 @@ function setMode(m){MODE=m;ls.set('mode',m);document.body.classList.toggle('ktv'
   if(m==='ktv'){stopNow();kInit();kRender()}else{try{KP&&KP.pauseVideo()}catch(e){}render()}}
 function kInit(){if(KP||ytMode!=='ok'||!window.YT||!YT.Player)return;const pv={playsinline:1,rel:0,modestbranding:1};if(location.protocol.startsWith('http'))pv.origin=location.origin;
   KP=new YT.Player('ktvEmbed',{width:'100%',height:'100%',playerVars:pv,events:{onReady:()=>{KPready=true;if(kPend){kPend=false;kLoad()}},
-    onStateChange:e=>{if(e.data===1||e.data===2)kWait(false);if(e.data===0)kCut();else if(e.data===1||e.data===2){try{kPubNow()}catch(x){}}kRender()},onError:()=>{kWait(false);if(KC&&!KC.retried){kMsg('這支影片不能在這裡播，自動換別的版本…');kReplace();return}kMsg('這支影片 YouTube 不讓在這裡播，按「切歌」換下一首，或換一支影片點。')}}})}
+    onStateChange:e=>{if(e.data===1||e.data===2)kWait(false);if(e.data===1&&KC&&!KC.sp&&kLyMode()&&KC.lyFor!==KC.id){KC.lyFor=KC.id;let d=0;try{d=KP.getDuration()||0}catch(x){}kLyrLoad(d,25)}if(e.data===0)kCut();else if(e.data===1||e.data===2){try{kPubNow()}catch(x){}}kRender()},onError:()=>{kWait(false);if(KC&&!KC.retried){kMsg('這支影片不能在這裡播，自動換別的版本…');kReplace();return}kMsg('這支影片 YouTube 不讓在這裡播，按「切歌」換下一首，或換一支影片點。')}}})}
 let kLT=null;function kWait(on){const b=$('kLoadBox');clearTimeout(kLT);if(!on||!KC){b.hidden=true;return}b.textContent='⏳ 載入中：'+KC.t;b.hidden=false;
   kLT=setTimeout(()=>{b.textContent='YouTube 這支載入比較慢（可能在播廣告），等一下或按「切歌」';kLT=setTimeout(()=>{b.hidden=true},15000)},10000)}
 function kLoad(){if(!KC)return;kWait(true);
-  if(KC.sp){try{KP&&KP.pauseVideo()}catch(e){}$('kLyr').hidden=false;$('kSpBox').hidden=false;kLyrLoad();kSpPlay(0);kMsg('');return}
-  $('kLyr').hidden=true;$('kSpBox').hidden=true;try{KSC&&KSC.pause()}catch(e){}
+  if(KC.sp){try{KP&&KP.pauseVideo()}catch(e){}$('kLyr').hidden=false;$('kSpBox').hidden=false;kLyrLoad(0,5);kSpPlay(0);kMsg('');return}
+  kLyrs=null;$('kLyr').hidden=!kLyMode();if(kLyMode()){$('kL1').textContent=kSongName(KC).t;$('kL1').classList.remove('on');$('kL2').textContent='歌詞載入中…'}$('kSpBox').hidden=true;try{KSC&&KSC.pause()}catch(e){}
   if(!KP||!KPready){kPend=true;kInit();return}try{KP.loadVideoById(KC.id)}catch(e){}kMsg('')}
 function kCut(){KC=KQ.length?KQ.shift():null;kSave();if(KC)kLoad();else{kWait(false);try{KSC&&KSC.pause()}catch(e){}$('kLyr').hidden=true;try{KP&&KP.stopVideo()}catch(e){}kMsg('待唱清單唱完了，再點歌吧！')}kRender()}
 function kAdd(song,first){if(KQ.some(x=>x.id===song.id)&&!first){kMsg('「'+song.t+'」已經在待唱清單裡了');return}
   KQ=KQ.filter(x=>x.id!==song.id);if(first)KQ.unshift(song);else KQ.push(song);kSave();
   if(!KC){kCut();kMsg('開始唱「'+song.t+'」'+(song.by?'（'+song.by+' 點的）':''));return}kMsg((song.by?song.by+' ':'')+(first?'插播「'+song.t+'」，下一首就唱':'點了「'+song.t+'」，排在第 '+KQ.length+' 首'));kRender()}
 function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
-  const idle=$('kIdle');idle.style.display=KC&&(yOK||KC.sp)?'none':'grid';$('kBk').textContent=KC&&KC.sp?'歌詞慢一點':'−2秒';$('kFw').textContent=KC&&KC.sp?'歌詞快一點':'+2秒';
+  const idle=$('kIdle');idle.style.display=KC&&(yOK||KC.sp)?'none':'grid';const lyOn=!!(KC&&(KC.sp||kLyMode()));$('kBk').textContent=lyOn?'歌詞慢一點':'−2秒';$('kFw').textContent=lyOn?'歌詞快一點':'+2秒';$('kAlign').hidden=!lyOn;$('kLyBtn').hidden=!KC||!!KC.sp;$('kLyBtn').textContent=kLyMode()?'看影片':'歌詞畫面';
   idle.innerHTML=!yOK?(ytMode==='wait'?'載入中…':'KTV 模式要在你的選歌台網站使用：<br><a href="https://s8902114-art.github.io/dj-ev1ebf52/" target="_blank" rel="noopener">打開我的選歌台網站</a>'):'在右邊點一首歌開始唱 🎤';
   $('kNow').textContent=KC?KC.t+(KC.sp?'〔'+(KC.ver||'伴奏')+'〕':'')+(KC.by?'（'+KC.by+' 點的）':''):'—';try{kPub()}catch(e){}$('kNowA').textContent=KC?KC.ch||'':'';
   $('kTicker').textContent=KQ.length?'下一首：'+KQ[0].t:'';
@@ -948,8 +948,24 @@ function kSpReady(cb){if(KSC){cb();return}if(!SPAPI){kMsg('Spotify 播放器還�
       if(KC&&KC.sp&&!kSpWarn&&KSS.dur>25&&KSS.dur<31.5&&KC.sp.ms>60000){kSpWarn=true;kMsg('Spotify 只放 30 秒試聽：要在這個瀏覽器登入 open.spotify.com，才會放整首')}
       if(KC&&KC.sp&&KSS.dur>5&&KSS.pos>=KSS.dur-1.2&&kSpEnd!==KC.id+KC.ver){const k=KC.id+KC.ver;kSpEnd=k;setTimeout(()=>{if(KC&&KC.sp&&KC.id+KC.ver===k)kCut()},1300)}});cb()})}catch(e){kMsg('Spotify 播放器載入失敗')}}
 function kSpPlay(at){kSpReady(()=>{if(!KC||!KC.sp)return;const id=KC.ver==='原唱'||!KC.sp.i?KC.sp.o:KC.sp.i;kSpEnd='';KSS={pos:at||0,ts:performance.now(),paused:true,dur:0};try{KSC.loadUri('spotify:track:'+id,false,at||0);KSC.play()}catch(e){}})}
-async function kLyrLoad(){const id=KC.id;kLyrs=null;kLyrOff=0;$('kL1').textContent=KC.sn||KC.t;$('kL1').classList.remove('on');$('kL2').textContent='歌詞載入中…';
-  let L=await lrcFetch(KC.sn||KC.t,KC.ch||'',(KC.sp.ms||0)/1000);if(!L&&KC.sp.n){L=await lrcFetch(KC.sp.n.replace(/\s*[-(（].*$/,''),KC.ch||'',(KC.sp.ms||0)/1000);if(L&&KC.id===id)KC.sp.lt=KC.sp.n.replace(/\s*[-(（].*$/,'')}if(!KC||KC.id!==id)return;kLyrs=L;if(!L)$('kL2').textContent='這首找不到同步歌詞（歌照常播）'}
+/* 正在唱的歌，拿來找歌詞的歌名和歌手 */
+function kSongName(c){if(c.sn)return{t:c.sn,a:c.ch||''};let t=String(c.t||''),a='';const han=/[㐀-鿿]/;
+  const m=t.match(/[《「『〈【](.+?)[》」』〉】]/)||t.match(/['‘’"“](.+?)['‘’"”]/);
+  if(m){a=t.slice(0,m.index);t=m[1]}
+  else{t=t.replace(/[（(\[].*?[)）\]]/g,' ').replace(/official|music video|\bmv\b|audio|lyrics?|video|\bhd\b|4k|ktv|karaoke|伴奏|伴唱|導唱|動態歌詞|高音質|完整版|官方|字幕/gi,' ').trim();
+    const pr=t.split(/\s[-–—|｜]\s|\s?[-–—|｜]\s?/).map(x=>x.trim()).filter(Boolean);if(pr.length>=2){a=pr[0];t=pr[1]}}
+  a=a.replace(/[\s\-–—|｜:：]+$/,'').trim();if(han.test(a))a=a.replace(/[A-Za-z][A-Za-z0-9 .&'-]*/g,' ').trim();else if(/[가-힯]/.test(a)&&/[A-Za-z]/.test(a))a=a.replace(/[가-힯]+/g,' ').trim();
+  if(a.length>12)a='';if(!a&&c.ch&&!/ktv|頻道|channel|karaoke|music|records|唱片/i.test(c.ch))a=c.ch;
+  return{t:t.replace(/\s+/g,' ').trim(),a:a.replace(/\s+/g,' ').trim()}}
+/* 不是 KTV 版的影片（官方 MV、音源）就自動蓋上兩排歌詞；KTV 版影片本身有字，就照舊看影片 */
+function kLyMode(){return !!(KC&&!KC.sp&&(KC.lyOn!=null?KC.lyOn:!/ktv|卡拉|karaoke|伴唱|伴奏|導唱|导唱|歌詞|歌词|lyric/i.test(KC.t+' '+(KC.ch||''))))}
+const kPos=()=>{if(KC&&KC.sp)return kSpPos();try{return KP.getCurrentTime()||0}catch(e){return 0}};
+async function kLyrLoad(sec,tol){const id=KC.id,nm=kSongName(KC);kLyrs=null;kLyrOff=0;$('kL1').textContent=nm.t;$('kL1').classList.remove('on');$('kL2').textContent='歌詞載入中…';
+  sec=sec||(KC.sp?(KC.sp.ms||0)/1000:0);let used=nm.t,L=await lrcFetch(nm.t,nm.a,sec,tol);
+  if(!L&&KC.sp&&KC.sp.n){used=KC.sp.n.replace(/\s*[-(（].*$/,'');L=await lrcFetch(used,nm.a,sec,tol)}
+  if(!L&&!KC.sp&&nm.a){L=await lrcFetch(nm.t,'',sec,tol)}
+  if(!KC||KC.id!==id)return;kLyrs=L;if(L){KC.lk={t:used,a:nm.a,ms:Math.round(sec*1000),tol:tol||5};try{kPubNow()}catch(e){}}
+  else $('kL2').textContent=KC.sp?'這首找不到同步歌詞（歌照常播）':'這首找不到同步歌詞，可以按「看影片」切回影片'}
 /* 原唱／伴唱：YouTube 一支影片只有一條聲音，所以是換成「同一首、長度差不多」的另一支影片；
    對不上就不換，避免換成別首或剪短版。換過一次後再按就直接換回原本那支，不用再搜尋。 */
 async function kSwap(){if(!KC){kMsg('先點一首歌');return}
@@ -974,8 +990,12 @@ async function kSwap(){if(!KC){kMsg('先點一首歌');return}
     KC=Object.assign({},KC,{id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),ver:want,alt:{id:KC.id,t:KC.t,ch:KC.ch,ver:KC.ver||(want==='伴奏'?'原唱':'伴奏'),off:-off}});
     kWait(true);try{KP.loadVideoById({videoId:KC.id,startSeconds:Math.max(0,pos+off)})}catch(e){}
     kMsg('已換成'+nm+'（長度差 '+Math.abs(Math.round(best.d-cur))+' 秒）。時間沒對齊可以按「−2秒」「+2秒」微調，再按一次「原唱／伴唱」直接換回來。');kRender()}catch(e){kMsg('切換失敗，請再試一次')}}
-function kNudge(n){if(KC&&KC.sp){kLyrOff+=n>0?0.5:-0.5;kMsg('歌詞時間調整 '+(kLyrOff>0?'+':'')+kLyrOff.toFixed(1)+' 秒');return}try{KP.seekTo(Math.max(0,(KP.getCurrentTime()||0)+n),true)}catch(e){}}
+function kNudge(n){if(KC&&(KC.sp||kLyMode())){kLyrOff+=n>0?0.5:-0.5;kMsg('歌詞時間調整 '+(kLyrOff>0?'+':'')+kLyrOff.toFixed(1)+' 秒');try{kPubNow()}catch(e){}return}try{KP.seekTo(Math.max(0,(KP.getCurrentTime()||0)+n),true)}catch(e){}}
 $('kBk').onclick=()=>kNudge(-2);$('kFw').onclick=()=>kNudge(2);
+/* 對齊下一句：聽到下面那排（還沒變色的那句）開始唱的瞬間按一下，歌詞就對準了 */
+$('kAlign').onclick=()=>{if(!kLyrs||!kLyrs.length){kMsg('這首還沒有歌詞可以對齊');return}const now=kPos(),p=now+kLyrOff,i=kLyrs.findIndex(x=>x.t>p+0.05&&x.x);if(i<0){kMsg('後面沒有歌詞了');return}
+  kLyrOff=kLyrs[i].t-now;kMsg('已對齊：「'+kLyrs[i].x+'」從現在開始。還差一點可以按「歌詞慢一點／快一點」');try{kPubNow()}catch(e){}};
+$('kLyBtn').onclick=()=>{if(!KC||KC.sp)return;KC.lyOn=!kLyMode();$('kLyr').hidden=!kLyMode();if(kLyMode()&&KC.lyFor!==KC.id){KC.lyFor=KC.id;let d=0;try{d=KP.getDuration()||0}catch(x){}kLyrLoad(d,25)}kRender();try{kPubNow()}catch(e){}};
 $('kSwap').onclick=kSwap;
 /* 掃碼點歌：點歌訊息透過免費公開傳訊服務 ntfy.sh 傳到主機 */
 const SITE='https://s8902114-art.github.io/dj-ev1ebf52/',NTFY='https://ntfy.sh/';
@@ -1003,7 +1023,8 @@ function kRemoteCmd(m,by){const c=String(m.c||''),i=+m.i,who=by?by+' ':'有人';
   const btn={pause:'kPause',cut:'kCut',re:'kRe',swap:'kSwap',vup:'kVu',vdown:'kVd'}[c];
   if(btn){$(btn).click();if(c==='cut')kMsg(who+'按了切歌');return}
   if((c==='top'||c==='del')&&KQ[i]){const x=KQ.splice(i,1)[0];if(c==='top'){KQ.unshift(x);kMsg(who+'插播「'+x.t+'」')}else kMsg(who+'刪掉了「'+x.t+'」');kSave();kRender();kPubNow()}}
-function kPlayInfo(){if(KC&&KC.sp)return{v:'',sp:{t:KC.sp.lt||KC.sn||KC.t,a:KC.ch||'',ms:KC.sp.ms||0},pos:Math.round(kSpPos()*10)/10,playing:!KSS.paused};let pos=0,playing=false;try{pos=Math.round((KP.getCurrentTime()||0)*10)/10;playing=KP.getPlayerState()===1}catch(e){}return{v:KC?KC.id:'',pos,playing}}
+function kPlayInfo(){if(KC&&KC.sp)return{v:'',sp:Object.assign({t:KC.sn||KC.t,a:KC.ch||'',ms:KC.sp.ms||0,tol:5},KC.lk||{},{off:kLyrOff}),pos:Math.round(kSpPos()*10)/10,playing:!KSS.paused};
+  if(KC&&kLyMode()&&KC.lk){let pos=0,playing=false;try{pos=Math.round((KP.getCurrentTime()||0)*10)/10;playing=KP.getPlayerState()===1}catch(e){}return{v:KC.id,sp:Object.assign({},KC.lk,{off:kLyrOff}),pos,playing}}let pos=0,playing=false;try{pos=Math.round((KP.getCurrentTime()||0)*10)/10;playing=KP.getPlayerState()===1}catch(e){}return{v:KC?KC.id:'',pos,playing}}
 function kStateBase(){return{type:'state',now:KC?KC.t.slice(0,80):'',nowBy:KC&&KC.by||'',q:KQ.slice(0,30).map(x=>({t:x.t.slice(0,60),by:x.by||''}))}}
 function kSend(st){fetch(NTFY+topic(kRoom),{method:'POST',body:JSON.stringify(st)}).catch(()=>{})}
 function kPub(){if(!kRoomOn||GUEST)return;clearTimeout(kPubT);kPubT=setTimeout(()=>{const base=JSON.stringify(kStateBase());if(base===kLastPub)return;kLastPub=base;kSend(Object.assign(kStateBase(),kPlayInfo()))},700)}
@@ -1018,12 +1039,12 @@ let kNewC=false;$('kRoomNew').onclick=()=>{if(!kNewC){kNewC=true;$('kRoomNew').t
 /* 客人頁 */
 let gLock=false,GP=null,GPready=false,gCur='',gState=null,gRid='',gRes=null;
 function gExpect(){if(!gState)return 0;return gState.playing?gState.pos+Math.max(0,(Date.now()-gState.t0)/1000):gState.pos}
-function gSync(st){if(!('v' in st))return;gState={v:st.v,sp:st.sp&&st.sp.t?{t:String(st.sp.t).slice(0,80),a:String(st.sp.a||'').slice(0,60),ms:+st.sp.ms||0}:null,playing:!!st.playing,pos:+st.pos||0,t0:st._t0||Date.now()};gInit();gApply()}
+function gSync(st){if(!('v' in st))return;gState={v:st.v,sp:st.sp&&st.sp.t?{t:String(st.sp.t).slice(0,80),a:String(st.sp.a||'').slice(0,60),ms:+st.sp.ms||0,tol:Math.min(30,+st.sp.tol||5),off:+st.sp.off||0}:null,playing:!!st.playing,pos:+st.pos||0,t0:st._t0||Date.now()};gInit();gApply()}
 function gInit(){if(GP||!window.YT||!YT.Player)return;GP=new YT.Player('gEmbed',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,controls:0,disablekb:1,modestbranding:1,origin:location.origin},
   events:{onReady:()=>{GPready=true;try{GP.mute()}catch(e){}gApply()}}})}
 let gLk='',gLyrs=null;
 function gApply(){if(gState&&gState.sp){$('gLyr').hidden=false;$('gCover').hidden=true;try{GP&&GP.pauseVideo()}catch(e){}gCur='';const k=gState.sp.t+'|'+gState.sp.a;
-    if(gLk!==k){gLk=k;gLyrs=null;$('gL1').textContent=gState.sp.t;$('gL1').classList.remove('on');$('gL2').textContent='歌詞載入中…';lrcFetch(gState.sp.t,gState.sp.a,gState.sp.ms/1000).then(L=>{if(gLk!==k)return;gLyrs=L;if(!L)$('gL2').textContent='這首找不到同步歌詞'})}return}
+    if(gLk!==k){gLk=k;gLyrs=null;$('gL1').textContent=gState.sp.t;$('gL1').classList.remove('on');$('gL2').textContent='歌詞載入中…';lrcFetch(gState.sp.t,gState.sp.a,gState.sp.ms/1000,gState.sp.tol).then(L=>{if(gLk!==k)return;gLyrs=L;if(!L)$('gL2').textContent='這首找不到同步歌詞'})}return}
   if(gState){$('gLyr').hidden=true;gLk=''}
   if(!GP||!GPready||!gState)return;const cov=$('gCover');
   if(!gState.v){cov.hidden=false;cov.textContent='等主持人開始唱…';try{GP.stopVideo()}catch(e){}gCur='';return}
@@ -1090,10 +1111,10 @@ function djLyrTick(){const box=$('djLyr');if(!P||P.kind==='timer'){if(!box.hidde
   const ent=c.q?c.q[P.qi||0]:null,t=ent?ent[0]:c.t,a=ent?ent[1]:c.a;if(!t)return;
   let pos=0,dur=0;try{if(P.kind==='sp'){pos=SPS.paused?SPS.pos:SPS.pos+(performance.now()-SPS.ts)/1000;dur=SPS.dur}else if(P.kind==='yt'){pos=YTP.getCurrentTime()||0;dur=YTP.getDuration()||0}else{pos=au.currentTime||0;dur=au.duration||0}}catch(e){}
   const k=t+'|'+a;if(dLk!==k){if(!dur)return;dLk=k;dLyrs=null;box.hidden=false;$('dL1').textContent=t;$('dL1').classList.remove('on');$('dL2').textContent='歌詞載入中…';
-    lrcFetch(t,a,dur).then(L=>{if(dLk!==k)return;dLyrs=L;if(!L)$('dL2').textContent='這首找不到同步歌詞'})}
+    lrcFetch(t,a,dur,P.kind==='yt'?25:5).then(L=>{if(dLk!==k)return;dLyrs=L;if(!L)$('dL2').textContent='這首找不到同步歌詞'})}
   if(dLyrs)lyrPaint(dLyrs,pos,$('dL1'),$('dL2'))}
-(function lyrLoop(){requestAnimationFrame(lyrLoop);try{if(GUEST){if(gLyrs&&!$('gLyr').hidden)lyrPaint(gLyrs,gExpect(),$('gL1'),$('gL2'))}
-  else if(MODE==='ktv'){if(KC&&KC.sp&&kLyrs&&!$('kLyr').hidden)lyrPaint(kLyrs,kSpPos()+kLyrOff,$('kL1'),$('kL2'))}else djLyrTick()}catch(e){}})();
+(function lyrLoop(){requestAnimationFrame(lyrLoop);try{if(GUEST){if(gLyrs&&!$('gLyr').hidden)lyrPaint(gLyrs,gExpect()+((gState&&gState.sp&&gState.sp.off)||0),$('gL1'),$('gL2'))}
+  else if(MODE==='ktv'){if(KC&&(KC.sp||kLyMode())&&kLyrs&&!$('kLyr').hidden)lyrPaint(kLyrs,kPos()+kLyrOff,$('kL1'),$('kL2'))}else djLyrTick()}catch(e){}})();
 spBoot();lib();render();if(MODE==='ktv'){kInit();kRender()}if(kRoomOn&&!GUEST){kListen();kMini()}
 }
 </script>
