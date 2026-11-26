@@ -690,6 +690,7 @@ $('ownForm').addEventListener('submit',e=>{e.preventDefault();
   else if(u){note='連結要以 https:// 開頭，已先加入歌名。'}
   insert(n);$('ownT').value='';$('ownA').value='';$('ownU').value='';$('ownMsg').textContent=note});
 /* KTV mode: search karaoke videos on YouTube, queue them, sing on a big screen */
+{const m=location.hash.match(/(?:^#|&)ytkey=([A-Za-z0-9_-]{20,})/);if(m){ls.set('ytkey',m[1]);history.replaceState(null,'',location.pathname+location.search)}}
 let YT_KEY=ls.get('ytkey')||'';
 let MODE=ls.get('mode')==='ktv'?'ktv':'dj',KP=null,KPready=false,KC=null,kPend=false,kRes=[],kNextTok='',kQ='',kBusy=false,kErr='';
 let KQ=[];try{KQ=JSON.parse(ls.get('ktvq')||'[]')}catch(e){}if(!Array.isArray(KQ))KQ=[];
