@@ -820,7 +820,7 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   $('kPick').innerHTML=pickHtml(hPick,'host');
   $('kSfx').innerHTML=SFX.map(x=>'<button class="chip" aria-pressed="'+(x===kSfx)+'" data-ksfx="'+x+'">'+x+'</button>').join('');
   let h='';
-  if(!YT_KEY)h='<div class="sphint"><b>第一次使用：貼上你的 YouTube 搜尋金鑰</b><span class="pm">金鑰只存在這台裝置的瀏覽器裡，不會公開。電腦、手機、車機要各貼一次。</span><form id="kKeyForm" class="kform" style="width:100%" autocomplete="off"><input id="kKey" placeholder="貼上金鑰"><button class="btn pl" style="--c:var(--photo)" type="submit">儲存</button></form></div>';
+  if(!YT_KEY)h='<div class="sphint"><b>第一次使用：貼上你的 YouTube 搜尋金鑰</b><span class="pm">先複製金鑰或一鍵設定連結，再按下面的按鈕。金鑰只存在這台裝置，不會公開。iPhone 加到主畫面的圖示要另外在裡面設定一次。</span><button class="btn pl" style="--c:var(--photo)" type="button" id="kKeyPaste">從剪貼簿貼上</button><form id="kKeyForm" class="kform" style="width:100%" autocomplete="off"><input id="kKey" placeholder="或在這裡貼上金鑰或一鍵設定連結"><button class="btn" type="submit">儲存</button></form></div>';
   else if(kBusy&&!kRes.length)h='<p class="pm">搜尋中…</p>';
   else if(kErr)h='<p class="pm">搜尋失敗（'+esc(kErr)+'），請把這行截圖給 Claude。</p><button class="btn sm" id="kKeyReset">重新貼金鑰</button>';
   else if(kQ&&!kRes.length)h='<p class="pm">沒有找到，換個關鍵字試試。</p>';
@@ -838,8 +838,10 @@ async function kPaste(u){const id=ytId(u);if(!id){kMsg('看不懂這個網址，
 $('modeDJ').onclick=()=>setMode('dj');$('modeKTV').onclick=()=>setMode('ktv');
 $('kForm').addEventListener('submit',e=>{e.preventDefault();kQ=$('kq').value.trim();kSearch(false)});
 $('kPaste').addEventListener('submit',e=>{e.preventDefault();const u=$('ku').value.trim();if(u){kPaste(u);$('ku').value=''}});
-$('kRes').addEventListener('submit',e=>{if(e.target.id!=='kKeyForm')return;e.preventDefault();const v=$('kKey').value.trim();if(!v)return;YT_KEY=v;ls.set('ytkey',v);kMsg('金鑰已儲存，可以開始搜尋點歌了');kRender()});
-$('kRes').addEventListener('click',e=>{if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(Object.assign({q:kQ},kRes[+a.dataset.kadd]),false);else if(b)kAdd(Object.assign({q:kQ},kRes[+b.dataset.kins]),true);else if(e.target.closest('#kMore'))kSearch(true)});
+const keyFrom=t=>{t=String(t||'').trim();const m=t.match(/ytkey=([A-Za-z0-9_-]{20,})/);if(m)return m[1];return /^[A-Za-z0-9_-]{30,60}$/.test(t)?t:''};
+function kSaveKey(v){const k=keyFrom(v);if(!k){kMsg('看不出是金鑰，請複製整串金鑰或整個一鍵設定連結');return}YT_KEY=k;ls.set('ytkey',k);kMsg('金鑰已儲存，可以開始搜尋點歌了');kRender()}
+$('kRes').addEventListener('submit',e=>{if(e.target.id!=='kKeyForm')return;e.preventDefault();kSaveKey($('kKey').value)});
+$('kRes').addEventListener('click',async e=>{if(e.target.closest('#kKeyPaste')){try{kSaveKey(await navigator.clipboard.readText())}catch(x){kMsg('這個瀏覽器不讓讀剪貼簿，請長按下面的欄位貼上，再按儲存')}return}if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(Object.assign({q:kQ},kRes[+a.dataset.kadd]),false);else if(b)kAdd(Object.assign({q:kQ},kRes[+b.dataset.kins]),true);else if(e.target.closest('#kMore'))kSearch(true)});
 $('kSfx').addEventListener('click',e=>{const b=e.target.closest('[data-ksfx]');if(!b)return;kSfx=b.dataset.ksfx;ls.set('ktvsfx',kSfx);if(kQ)kSearch(false);else kRender()});
 $('kPick').addEventListener('click',e=>pickClick(e,hPick,'host'));
 $('kList').addEventListener('click',e=>{const u=e.target.closest('[data-kup]'),d=e.target.closest('[data-kdel]');
