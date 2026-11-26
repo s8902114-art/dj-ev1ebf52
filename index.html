@@ -692,6 +692,7 @@ $('ownForm').addEventListener('submit',e=>{e.preventDefault();
 /* KTV mode: search karaoke videos on YouTube, queue them, sing on a big screen */
 {const m=location.hash.match(/(?:^#|&)ytkey=([A-Za-z0-9_-]{20,})/);if(m){ls.set('ytkey',m[1]);history.replaceState(null,'',location.pathname+location.search)}}
 let YT_KEY=ls.get('ytkey')||'';
+let kLastPrm=null,kLoose=false;
 let MODE=ls.get('mode')==='ktv'?'ktv':'dj',KP=null,KPready=false,KC=null,kPend=false,kRes=[],kNextTok='',kQ='',kBusy=false,kErr='';
 let KQ=[];try{KQ=JSON.parse(ls.get('ktvq')||'[]')}catch(e){}if(!Array.isArray(KQ))KQ=[];
 let kSfx=ls.get('ktvsfx')||'KTV';const SFX=['KTV','官方 KTV','伴奏','原版'];
@@ -699,9 +700,17 @@ const KCH={zh:{n:'國語熱門',note:'綜合 2026 年近期錢櫃、好樂迪點
  tw:{n:'台語點播',note:'好樂迪台語點播排行，2026/11/10 – 11/16。',s:[['若無你我欲去佗位','黃奇斌'],['必巡','曾瑋中'],['運轉人生','邱軍'],['人生的歌','黃乙玲'],['雲中月圓','王識賢 & 孫淑媚'],['閣愛妳一擺','茄子蛋'],['浪流連','茄子蛋'],['愛到無命不知驚','王識賢'],['我喜歡你','芒果醬'],['浪子回頭','茄子蛋'],['做你的格','玖壹壹'],['伊的身邊已經有別人 2023','許富凱 & 血肉果汁機'],['你講的話','江蕙'],['夢中的情話','江蕙 & 阿杜'],['愛情你比我想的閣較偉大','茄子蛋'],['刺到整身軀','春風 & 潤少 & 970'],['心裡有針','蕭煌奇'],['上水的花','蕭煌奇'],['癡情的男子漢','洋蔥 & 睿兒'],['作陣彼一暝','阿吉仔']]},
  party:{n:'團康嗨歌',note:'適合大家一起唱、一起跳的歌。',s:[['派對動物','五月天'],['倔強','五月天'],['來個蹦蹦','玖壹壹'],['姊姊','謝金燕'],['三天三夜','張惠妹'],['舞孃','蔡依林'],['大藝術家','蔡依林'],['Mojito','周杰倫'],['帶我去找夜生活','告五人'],['萬事大吉','理想混蛋'],['乾杯','五月天'],['朋友','周華健'],['浪流連','茄子蛋'],['向前走','林強'],['愛拚才會贏','葉啟田']]}};
 let kTab=ls.get('ktvchart')||'zh';if(!KCH[kTab])kTab='zh';
+const spaced=q=>q.replace(/([一-鿿])([A-Za-z0-9])/g,'$1 $2').replace(/([A-Za-z0-9])([一-鿿])/g,'$1 $2');
+async function ytFind(q,max,tok,prm0){const tries=prm0?[prm0]:[
+    {q:q+' '+kSfx,regionCode:'TW',relevanceLanguage:'zh-Hant'},{q:spaced(q)+' '+kSfx},{q:spaced(q)+' 伴奏'},{q:spaced(q)}];
+  let last=null;for(const t of tries){const prm=Object.assign({part:'snippet',type:'video',videoEmbeddable:'true',maxResults:String(max),key:YT_KEY},t);if(tok)prm.pageToken=tok;
+    const r=await fetch('https://www.googleapis.com/youtube/v3/search?'+new URLSearchParams(prm));const j=await r.json();
+    if(!r.ok)return{err:'代碼 '+r.status+((j.error&&j.error.message)?'：'+j.error.message:'')};
+    last={items:j.items||[],next:j.nextPageToken||'',prm:t,loose:t!==tries[0]};if(last.items.length)return last}
+  return last||{items:[],next:''}}
 async function kPickFirst(t,a,first){if(!YT_KEY){kMsg('還沒設定 YouTube 搜尋金鑰，排行榜暫時不能點歌');return}kMsg('幫你找「'+t+'」的 KTV 版本…');
-  try{const r=await fetch('https://www.googleapis.com/youtube/v3/search?'+new URLSearchParams({part:'snippet',type:'video',videoEmbeddable:'true',maxResults:'1',q:t+' '+a+' '+kSfx,regionCode:'TW',key:YT_KEY}));const j=await r.json();
-    const it=r.ok&&j.items&&j.items[0];if(!it){kMsg(r.ok?'找不到「'+t+'」的影片，按「選版本」自己挑':'搜尋失敗（代碼 '+r.status+'）');return}
+  try{const g=await ytFind(t+' '+a,1);if(g.err){kMsg('搜尋失敗（'+g.err+'）');return}const it=g.items[0];
+    if(!it){kMsg('找不到「'+t+'」的影片，按「選版本」換個關鍵字試試');return}
     kAdd({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||'')},first)}catch(e){kMsg('搜尋失敗，請稍後再試')}}
 const kSave=()=>ls.set('ktvq',JSON.stringify(KQ));
 const kMsg=t=>{$('kMsg').textContent=t||''};
@@ -715,7 +724,7 @@ function kLoad(){if(!KC)return;if(!KP||!KPready){kPend=true;kInit();return}try{K
 function kCut(){KC=KQ.length?KQ.shift():null;kSave();if(KC)kLoad();else{try{KP&&KP.stopVideo()}catch(e){}kMsg('待唱清單唱完了，再點歌吧！')}kRender()}
 function kAdd(song,first){if(KQ.some(x=>x.id===song.id)&&!first){kMsg('「'+song.t+'」已經在待唱清單裡了');return}
   KQ=KQ.filter(x=>x.id!==song.id);if(first)KQ.unshift(song);else KQ.push(song);kSave();
-  if(!KC){kCut();return}kMsg(first?'已插播「'+song.t+'」，下一首就唱':'已點「'+song.t+'」，排在第 '+KQ.length+' 首');kRender()}
+  if(!KC){kCut();kMsg('開始唱「'+song.t+'」');return}kMsg(first?'已插播「'+song.t+'」，下一首就唱':'已點「'+song.t+'」，排在第 '+KQ.length+' 首');kRender()}
 function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   const idle=$('kIdle');idle.style.display=KC&&yOK?'none':'grid';
   idle.innerHTML=!yOK?(ytMode==='wait'?'載入中…':'KTV 模式要在你的選歌台網站使用：<br><a href="https://s8902114-art.github.io/dj-ev1ebf52/" target="_blank" rel="noopener">打開我的選歌台網站</a>'):'在右邊點一首歌開始唱 🎤';
@@ -732,14 +741,13 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   else if(kBusy&&!kRes.length)h='<p class="pm">搜尋中…</p>';
   else if(kErr)h='<p class="pm">搜尋失敗（'+esc(kErr)+'），請把這行截圖給 Claude。</p><button class="btn sm" id="kKeyReset">重新貼金鑰</button>';
   else if(kQ&&!kRes.length)h='<p class="pm">沒有找到，換個關鍵字試試。</p>';
-  else if(kRes.length)h='<ul class="kres">'+kRes.map((x,i)=>'<li>'+(x.img?'<img src="'+esc(x.img)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="qt">'+esc(x.t)+'<br><small>'+esc(x.ch)+'</small></span><span class="kb"><button class="btn sm pl" style="--c:var(--photo)" data-kadd="'+i+'">點歌</button><button class="btn sm" data-kins="'+i+'">插播</button></span></li>').join('')+'</ul>'+(kNextTok?'<button class="btn sm more" id="kMore">'+(kBusy?'載入中…':'載入更多')+'</button>':'');
+  else if(kRes.length)h=(kLoose?'<p class="pm">找不到加上「'+esc(kSfx)+'」的版本，下面是放寬條件後找到的。</p>':'')+'<ul class="kres">'+kRes.map((x,i)=>'<li>'+(x.img?'<img src="'+esc(x.img)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="qt">'+esc(x.t)+'<br><small>'+esc(x.ch)+'</small></span><span class="kb"><button class="btn sm pl" style="--c:var(--photo)" data-kadd="'+i+'">點歌</button><button class="btn sm" data-kins="'+i+'">插播</button></span></li>').join('')+'</ul>'+(kNextTok?'<button class="btn sm more" id="kMore">'+(kBusy?'載入中…':'載入更多')+'</button>':'');
   $('kRes').innerHTML=h;
   try{$('kPause').textContent=KP&&KP.getPlayerState&&KP.getPlayerState()===1?'⏸ 暫停':'▶ 繼續'}catch(e){}}
 async function kSearch(more){if(!YT_KEY||!kQ)return;kBusy=true;kErr='';if(!more){kRes=[];kNextTok=''}kRender();
-  try{const prm={part:'snippet',type:'video',videoEmbeddable:'true',maxResults:'12',q:kQ+' '+kSfx,regionCode:'TW',relevanceLanguage:'zh-Hant',key:YT_KEY};if(more&&kNextTok)prm.pageToken=kNextTok;
-    const r=await fetch('https://www.googleapis.com/youtube/v3/search?'+new URLSearchParams(prm));const j=await r.json();
-    if(!r.ok){kErr='代碼 '+r.status+((j.error&&j.error.message)?'：'+j.error.message:'')}
-    else{(j.items||[]).forEach(it=>{if(it.id&&it.id.videoId)kRes.push({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),img:(it.snippet.thumbnails&&(it.snippet.thumbnails.medium||it.snippet.thumbnails.default)||{}).url||''})});kNextTok=j.nextPageToken||''}}
+  try{const g=await ytFind(kQ,12,more?kNextTok:'',more?kLastPrm:null);
+    if(g.err){kErr=g.err}
+    else{g.items.forEach(it=>{if(it.id&&it.id.videoId)kRes.push({id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),img:(it.snippet.thumbnails&&(it.snippet.thumbnails.medium||it.snippet.thumbnails.default)||{}).url||''})});kNextTok=g.next;if(!more){kLastPrm=g.prm;kLoose=!!g.loose}}}
   catch(e){kErr='連線失敗'}kBusy=false;kRender()}
 async function kPaste(u){const id=ytId(u);if(!id){kMsg('看不懂這個網址，請貼 YouTube 影片的網址');return}
   let t='自己點的歌',ch='';try{const r=await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+id));if(r.ok){const j=await r.json();t=j.title||t;ch=j.author_name||''}}catch(e){}
