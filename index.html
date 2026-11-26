@@ -70,7 +70,7 @@ input,select{font:16px "Noto Sans TC",sans-serif;color:var(--ink);background:#12
 .lib{border-top:1px solid var(--line)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px}
 .chip{min-height:40px;border-radius:999px;border:1px solid var(--c);background:transparent;padding:6px 16px;font-weight:700;color:var(--c)}
-.chip[aria-pressed=true]{background:var(--c);color:#191815}
+.chip[aria-pressed=true]{background:var(--c,var(--photo));border-color:var(--c,var(--photo));color:#191815}
 .lead{color:var(--mute);margin:0 0 16px;max-width:70ch}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
@@ -129,7 +129,9 @@ body.ktv .booth,body.ktv .lib,body.ktv .keys,body.ktv #mode{display:none}
 .kstage:fullscreen{border-radius:0;border:0;aspect-ratio:auto;width:100vw;height:100vh}
 .kidle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:var(--mute);font-size:18px;background:radial-gradient(circle at 50% 40%,#2a1f2a,#0c0b0a)}
 .kidle a{color:var(--photo)}
-.kticker{position:absolute;left:0;right:0;bottom:0;padding:18px 14px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:15px;font-weight:700;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kticker:empty{display:none}
+.kload{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:80%;background:rgba(0,0,0,.72);color:#fff;border-radius:999px;padding:10px 18px;font-weight:700;font-size:16px;pointer-events:none;text-align:center;z-index:1}
+.kticker{position:absolute;left:0;right:0;top:0;padding:8px 124px 18px 14px;background:linear-gradient(rgba(0,0,0,.75),transparent);color:#fff;font-size:15px;font-weight:700;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .know{margin-top:12px}
 .kctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .kctl .fade{background:var(--photo);border-color:var(--photo)}
@@ -252,7 +254,7 @@ tr.m30 td{border-bottom:2px solid var(--c)}
 
   <section id="ktv" class="ktvwrap" aria-label="KTV">
     <div class="kcol">
-      <div class="kstage" id="kStage"><div id="ktvEmbed"></div><div class="kidle" id="kIdle">點一首歌開始唱</div><div class="kqr" id="kQrMini" hidden><div id="kQrMiniBox"></div><span>掃碼點歌</span></div><div class="kticker" id="kTicker"></div></div>
+      <div class="kstage" id="kStage"><div id="ktvEmbed"></div><div class="kidle" id="kIdle">點一首歌開始唱</div><div class="kqr" id="kQrMini" hidden><div id="kQrMiniBox"></div><span>掃碼點歌</span></div><div class="kload" id="kLoadBox" hidden></div><div class="kticker" id="kTicker"></div></div>
       <div class="know"><div class="np">正在唱</div><div class="nt" id="kNow">—</div><div class="na" id="kNowA"></div></div>
       <div class="kctl">
         <button class="btn" id="kPause">⏯ 暫停</button><button class="btn" id="kRe">↺ 重唱</button><button class="btn fade" id="kCut">⏭ 切歌</button>
@@ -826,9 +828,11 @@ function setMode(m){MODE=m;ls.set('mode',m);document.body.classList.toggle('ktv'
   if(m==='ktv'){stopNow();kInit();kRender()}else{try{KP&&KP.pauseVideo()}catch(e){}render()}}
 function kInit(){if(KP||ytMode!=='ok'||!window.YT||!YT.Player)return;const pv={playsinline:1,rel:0,modestbranding:1};if(location.protocol.startsWith('http'))pv.origin=location.origin;
   KP=new YT.Player('ktvEmbed',{width:'100%',height:'100%',playerVars:pv,events:{onReady:()=>{KPready=true;if(kPend){kPend=false;kLoad()}},
-    onStateChange:e=>{if(e.data===0)kCut();else if(e.data===1||e.data===2){try{kPubNow()}catch(x){}}kRender()},onError:()=>{if(KC&&!KC.retried){kMsg('這支影片不能在這裡播，自動換別的版本…');kReplace();return}kMsg('這支影片 YouTube 不讓在這裡播，按「切歌」換下一首，或換一支影片點。')}}})}
-function kLoad(){if(!KC)return;if(!KP||!KPready){kPend=true;kInit();return}try{KP.loadVideoById(KC.id)}catch(e){}kMsg('')}
-function kCut(){KC=KQ.length?KQ.shift():null;kSave();if(KC)kLoad();else{try{KP&&KP.stopVideo()}catch(e){}kMsg('待唱清單唱完了，再點歌吧！')}kRender()}
+    onStateChange:e=>{if(e.data===1||e.data===2)kWait(false);if(e.data===0)kCut();else if(e.data===1||e.data===2){try{kPubNow()}catch(x){}}kRender()},onError:()=>{kWait(false);if(KC&&!KC.retried){kMsg('這支影片不能在這裡播，自動換別的版本…');kReplace();return}kMsg('這支影片 YouTube 不讓在這裡播，按「切歌」換下一首，或換一支影片點。')}}})}
+let kLT=null;function kWait(on){const b=$('kLoadBox');clearTimeout(kLT);if(!on||!KC){b.hidden=true;return}b.textContent='⏳ 載入中：'+KC.t;b.hidden=false;
+  kLT=setTimeout(()=>{b.textContent='YouTube 這支載入比較慢（可能在播廣告），等一下或按「切歌」';kLT=setTimeout(()=>{b.hidden=true},15000)},10000)}
+function kLoad(){if(!KC)return;kWait(true);if(!KP||!KPready){kPend=true;kInit();return}try{KP.loadVideoById(KC.id)}catch(e){}kMsg('')}
+function kCut(){KC=KQ.length?KQ.shift():null;kSave();if(KC)kLoad();else{kWait(false);try{KP&&KP.stopVideo()}catch(e){}kMsg('待唱清單唱完了，再點歌吧！')}kRender()}
 function kAdd(song,first){if(KQ.some(x=>x.id===song.id)&&!first){kMsg('「'+song.t+'」已經在待唱清單裡了');return}
   KQ=KQ.filter(x=>x.id!==song.id);if(first)KQ.unshift(song);else KQ.push(song);kSave();
   if(!KC){kCut();kMsg('開始唱「'+song.t+'」'+(song.by?'（'+song.by+' 點的）':''));return}kMsg((song.by?song.by+' ':'')+(first?'插播「'+song.t+'」，下一首就唱':'點了「'+song.t+'」，排在第 '+KQ.length+' 首'));kRender()}
@@ -836,7 +840,7 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   const idle=$('kIdle');idle.style.display=KC&&yOK?'none':'grid';
   idle.innerHTML=!yOK?(ytMode==='wait'?'載入中…':'KTV 模式要在你的選歌台網站使用：<br><a href="https://s8902114-art.github.io/dj-ev1ebf52/" target="_blank" rel="noopener">打開我的選歌台網站</a>'):'在右邊點一首歌開始唱 🎤';
   $('kNow').textContent=KC?KC.t+(KC.by?'（'+KC.by+' 點的）':''):'—';try{kPub()}catch(e){}$('kNowA').textContent=KC?KC.ch||'':'';
-  $('kTicker').textContent=KQ.length?'下一首：'+KQ[0].t:(KC?'待唱清單是空的，快去點歌':'');
+  $('kTicker').textContent=KQ.length?'下一首：'+KQ[0].t:'';
   $('kCount').textContent=KQ.length?'共 '+KQ.length+' 首':'';
   $('kList').innerHTML=KQ.length?KQ.map((x,i)=>'<li><span class="qt">'+(i+1)+'. '+esc(x.t)+(x.by?' <span class="by">'+esc(x.by)+' 點</span>':'')+(x.ch?' <small>'+esc(x.ch)+'</small>':'')+'</span>'+(i?'<button class="btn sm" data-kup="'+i+'">插播</button>':'')+'<button class="btn sm" data-kdel="'+i+'" aria-label="刪除">刪除</button></li>').join(''):'<li class="pm">還沒有點歌</li>';
   $('kPick').innerHTML=pickHtml(hPick,'host');
@@ -889,7 +893,7 @@ async function kSwap(){if(!KC){kMsg('先點一首歌');return}
   let pos=0,cur=0;try{pos=KP.getCurrentTime()||0;cur=KP.getDuration()||0}catch(e){}
   const want=KC.ver==='伴奏'?'原唱':'伴奏',nm=want==='伴奏'?'伴奏':'原唱';
   if(KC.alt){const o=KC.alt;KC=Object.assign({},KC,{id:o.id,t:o.t,ch:o.ch,ver:o.ver,alt:{id:KC.id,t:KC.t,ch:KC.ch,ver:KC.ver||(want==='伴奏'?'原唱':'伴奏')}});
-    try{KP.loadVideoById({videoId:KC.id,startSeconds:Math.max(0,pos+(o.off||0))})}catch(e){}if(KC.alt)KC.alt.off=-(o.off||0);kMsg('已換成'+nm+'。時間沒對齊可以按「−2秒」「+2秒」微調。');kRender();return}
+    kWait(true);try{KP.loadVideoById({videoId:KC.id,startSeconds:Math.max(0,pos+(o.off||0))})}catch(e){}if(KC.alt)KC.alt.off=-(o.off||0);kMsg('已換成'+nm+'。時間沒對齊可以按「−2秒」「+2秒」微調。');kRender();return}
   if(!YT_KEY){kMsg('要有搜尋金鑰才能切換版本');return}
   const sn=KC.sn||'',base=KC.q||KC.t,toks=(sn?[sn]:spaced(base).split(/\s+/)).map(nrm).filter(x=>x.length>=2);
   kMsg('正在找同一首的「'+nm+'」版本…');
@@ -904,7 +908,7 @@ async function kSwap(){if(!KC){kMsg('先點一首歌');return}
     if(!best){kMsg('這首找不到長度對得上的「'+nm+'」版本，所以沒有換（避免換成別首或剪短版）。');return}
     const it=best.x,off=cur?Math.round((best.d-cur)/2):0;
     KC=Object.assign({},KC,{id:it.id.videoId,t:deEnt(it.snippet.title),ch:deEnt(it.snippet.channelTitle||''),ver:want,alt:{id:KC.id,t:KC.t,ch:KC.ch,ver:KC.ver||(want==='伴奏'?'原唱':'伴奏'),off:-off}});
-    try{KP.loadVideoById({videoId:KC.id,startSeconds:Math.max(0,pos+off)})}catch(e){}
+    kWait(true);try{KP.loadVideoById({videoId:KC.id,startSeconds:Math.max(0,pos+off)})}catch(e){}
     kMsg('已換成'+nm+'（長度差 '+Math.abs(Math.round(best.d-cur))+' 秒）。時間沒對齊可以按「−2秒」「+2秒」微調，再按一次「原唱／伴唱」直接換回來。');kRender()}catch(e){kMsg('切換失敗，請再試一次')}}
 function kNudge(n){try{KP.seekTo(Math.max(0,(KP.getCurrentTime()||0)+n),true)}catch(e){}}
 $('kBk').onclick=()=>kNudge(-2);$('kFw').onclick=()=>kNudge(2);
@@ -975,7 +979,7 @@ async function gSearch(q,more){if(!q)return;if(gLock&&!more){$('gMsg').textConte
   gRid=rid().slice(0,8);const keep=more&&gRes?gRes.items:[];gRes={q,wait:true,items:keep};$('gRes').innerHTML=gResHtml();
   try{await gPost({type:'search',q,rid:gRid,tok:more&&gRes.next0||'',prm:more?gRes.prm0:null})}catch(e){gRes={q,err:'送不出去，請檢查網路',items:[]};$('gRes').innerHTML=gResHtml()}
   setTimeout(()=>{if(gRes&&gRes.wait&&gRes.q===q){gRes={q,err:'主持人那邊沒有回應，請確認主持人開著 KTV 模式',items:keep};$('gRes').innerHTML=gResHtml()}},15000)}
-async function gSend(t,a,top,song){if(gLock){$('gMsg').textContent='送太快了，等幾秒再點';return}gLock=true;setTimeout(()=>gLock=false,3000);
+async function gSend(t,a,top,song){if(gLock){$('gMsg').textContent='送太快了，等幾秒再點';return}gLock=true;setTimeout(()=>gLock=false,3000);$('gMsg').textContent='送出中「'+t+'」…';
   try{const r=await gPost(Object.assign({type:'req',t,a,by:gBy(),top:!!top},song||{}));$('gMsg').textContent=r.ok?(top?'已插播':'已送出')+'「'+t+'」！':'送出失敗，請再試一次'}catch(e){$('gMsg').textContent='送出失敗，請檢查網路'}}
 async function gCmd(c,i){try{await gPost({type:'cmd',c,i,by:gBy()});const label={pause:'暫停／繼續',re:'重唱',cut:'切歌',swap:'原唱／伴唱',vup:'音量加大',vdown:'音量變小',top:'插播',del:'刪除'}[c];$('gMsg').textContent='已送出：'+label}catch(e){$('gMsg').textContent='送不出去，請檢查網路'}}
 if(GUEST){setInterval(()=>{gInit();gApply()},4000);document.body.classList.add('guest');document.title='掃碼點歌';$('gBy').value=ls.get('gby')||'';gRenderPick();
