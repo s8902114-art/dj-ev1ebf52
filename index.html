@@ -160,6 +160,10 @@ body.ktv .booth,body.ktv .lib,body.ktv .keys,body.ktv #mode{display:none}
 .kchk input{width:auto}
 .kbox .row2{justify-content:center}
 #guest{display:none}
+#pairband{display:none}
+body.pair .band:not(#pairband){display:none}
+body.pair #pairband{display:block}
+#pPaste{min-height:52px;font-size:18px;margin-top:12px}
 .gvid{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
 .gvid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .gcover{position:absolute;inset:0;display:grid;place-items:center;color:var(--mute);background:#0c0b0a;text-align:center;padding:12px}
@@ -272,6 +276,14 @@ tr.m30 td{border-bottom:2px solid var(--c)}
 </div></div>
 
 <div class="kover" id="kOver" hidden><div class="kbox"><h2>掃碼點歌</h2><p class="pm">用手機相機掃這個 QR Code，就能點歌。點的歌會自動排進待唱清單。</p><div id="kQrBig" class="kqrbig"></div><p class="pm kurl" id="kRoomUrl"></p><label class="kchk"><input type="checkbox" id="kMiniOn"> 在唱歌畫面角落一直顯示 QR Code</label><div class="row2"><button class="btn sm" id="kRoomNew">換一個新的點歌碼</button><button class="btn sm pl" style="--c:var(--photo)" id="kOverClose">關閉</button></div></div></div>
+
+<div class="kover" id="kPairOver" hidden><div class="kbox"><h2>用手機設定金鑰</h2><p class="pm">用手機相機掃這個 QR Code。手機會把金鑰加密後傳給這台，這台不用打任何字。手機要先點過一鍵設定連結。</p><div id="kPairQr" class="kqrbig"></div><p class="alert on" id="kPairMsg">等手機傳過來…</p><div class="row2"><button class="btn sm pl" style="--c:var(--photo)" id="kPairClose">關閉</button></div></div></div>
+
+<div class="band" id="pairband"><div class="wrap gwrap">
+  <h1 class="gtitle">幫另一台設定金鑰</h1>
+  <p class="sub" id="pMsg">準備中…</p>
+  <button class="btn pl" style="--c:var(--photo)" id="pPaste" hidden>從剪貼簿貼上金鑰</button>
+</div></div>
 
 <div class="band" id="guest"><div class="wrap gwrap">
   <h1 class="gtitle">掃碼點歌</h1>
@@ -820,7 +832,7 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   $('kPick').innerHTML=pickHtml(hPick,'host');
   $('kSfx').innerHTML=SFX.map(x=>'<button class="chip" aria-pressed="'+(x===kSfx)+'" data-ksfx="'+x+'">'+x+'</button>').join('');
   let h='';
-  if(!YT_KEY)h='<div class="sphint"><b>第一次使用：貼上你的 YouTube 搜尋金鑰</b><span class="pm">先複製金鑰或一鍵設定連結，再按下面的按鈕。金鑰只存在這台裝置，不會公開。iPhone 加到主畫面的圖示要另外在裡面設定一次。</span><button class="btn pl" style="--c:var(--photo)" type="button" id="kKeyPaste">從剪貼簿貼上</button><form id="kKeyForm" class="kform" style="width:100%" autocomplete="off"><input id="kKey" placeholder="或在這裡貼上金鑰或一鍵設定連結"><button class="btn" type="submit">儲存</button></form></div>';
+  if(!YT_KEY)h='<div class="sphint"><b>第一次使用：貼上你的 YouTube 搜尋金鑰</b><span class="pm">先複製金鑰或一鍵設定連結，再按下面的按鈕。金鑰只存在這台裝置，不會公開。iPhone 加到主畫面的圖示要另外在裡面設定一次。</span><span class="row2"><button class="btn pl" style="--c:var(--photo)" type="button" id="kKeyPair">用手機掃碼設定（不用打字）</button><button class="btn" type="button" id="kKeyPaste">從剪貼簿貼上</button></span><form id="kKeyForm" class="kform" style="width:100%" autocomplete="off"><input id="kKey" placeholder="或在這裡貼上金鑰或一鍵設定連結"><button class="btn" type="submit">儲存</button></form></div>';
   else if(kBusy&&!kRes.length)h='<p class="pm">搜尋中…</p>';
   else if(kErr)h='<p class="pm">搜尋失敗（'+esc(kErr)+'），請把這行截圖給 Claude。</p><button class="btn sm" id="kKeyReset">重新貼金鑰</button>';
   else if(kQ&&!kRes.length)h='<p class="pm">沒有找到，換個關鍵字試試。</p>';
@@ -841,7 +853,7 @@ $('kPaste').addEventListener('submit',e=>{e.preventDefault();const u=$('ku').val
 const keyFrom=t=>{t=String(t||'').trim();const m=t.match(/ytkey=([A-Za-z0-9_-]{20,})/);if(m)return m[1];return /^[A-Za-z0-9_-]{30,60}$/.test(t)?t:''};
 function kSaveKey(v){const k=keyFrom(v);if(!k){kMsg('看不出是金鑰，請複製整串金鑰或整個一鍵設定連結');return}YT_KEY=k;ls.set('ytkey',k);kMsg('金鑰已儲存，可以開始搜尋點歌了');kRender()}
 $('kRes').addEventListener('submit',e=>{if(e.target.id!=='kKeyForm')return;e.preventDefault();kSaveKey($('kKey').value)});
-$('kRes').addEventListener('click',async e=>{if(e.target.closest('#kKeyPaste')){try{kSaveKey(await navigator.clipboard.readText())}catch(x){kMsg('這個瀏覽器不讓讀剪貼簿，請長按下面的欄位貼上，再按儲存')}return}if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(Object.assign({q:kQ},kRes[+a.dataset.kadd]),false);else if(b)kAdd(Object.assign({q:kQ},kRes[+b.dataset.kins]),true);else if(e.target.closest('#kMore'))kSearch(true)});
+$('kRes').addEventListener('click',async e=>{if(e.target.closest('#kKeyPair')){kPairStart();return}if(e.target.closest('#kKeyPaste')){try{kSaveKey(await navigator.clipboard.readText())}catch(x){kMsg('這個瀏覽器不讓讀剪貼簿，請長按下面的欄位貼上，再按儲存')}return}if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(Object.assign({q:kQ},kRes[+a.dataset.kadd]),false);else if(b)kAdd(Object.assign({q:kQ},kRes[+b.dataset.kins]),true);else if(e.target.closest('#kMore'))kSearch(true)});
 $('kSfx').addEventListener('click',e=>{const b=e.target.closest('[data-ksfx]');if(!b)return;kSfx=b.dataset.ksfx;ls.set('ktvsfx',kSfx);if(kQ)kSearch(false);else kRender()});
 $('kPick').addEventListener('click',e=>pickClick(e,hPick,'host'));
 $('kList').addEventListener('click',e=>{const u=e.target.closest('[data-kup]'),d=e.target.closest('[data-kdel]');
@@ -947,6 +959,26 @@ if(GUEST){setInterval(()=>{gInit();gApply()},4000);document.body.classList.add('
       if(m.type==='state'){m._t0=(d.time||0)*1000+500;gRender(m)}
       else if(m.type==='results'&&m.rid===gRid&&gRes&&gRes.wait){gRes={q:m.q,err:m.err||'',items:(gRes.items||[]).concat(m.items||[]),next:m.next||'',next0:m.next||'',prm0:m.prm||null,loose:m.loose};$('gRes').innerHTML=gResHtml()}};
     es.onerror=()=>{if(!$('gQ').dataset.ok)$('gQ').innerHTML='<li class="pm">連不上，請確認網路後重新整理</li>'};es.onopen=()=>{$('gQ').dataset.ok='1';if($('gQ').textContent.includes('連線中'))$('gQ').innerHTML='<li class="pm">等主持人那邊更新清單…</li>'}}catch(e){}}
+/* 用手機幫這台設定金鑰：金鑰用 QR Code 裡的密碼加密後才送出 */
+const b64e=u=>btoa(String.fromCharCode(...new Uint8Array(u))),b64d=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function aesKey(pass){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pass));return crypto.subtle.importKey('raw',h,'AES-GCM',false,['encrypt','decrypt'])}
+let kPairES=null;
+function kPairStart(){const tp=rid(),pass=rid()+rid();$('kPairOver').hidden=false;$('kPairMsg').textContent='等手機傳過來…';
+  const el=$('kPairQr');el.innerHTML='';loadQR(()=>{new QRCode(el,{text:SITE+'#pair='+tp+'.'+pass,width:240,height:240,colorDark:'#191815',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})});
+  if(kPairES)kPairES.close();try{kPairES=new EventSource(NTFY+'djpair-'+tp+'/sse');kPairES.onmessage=async e=>{let d;try{d=JSON.parse(e.data)}catch(x){return}if(d.event!=='message')return;
+    try{const m=JSON.parse(d.message);if(m.type!=='key')return;const k=await aesKey(pass);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(m.iv)},k,b64d(m.ct));
+      const v=new TextDecoder().decode(pt);if(!/^[A-Za-z0-9_-]{30,60}$/.test(v))return;YT_KEY=v;ls.set('ytkey',v);$('kPairMsg').textContent='設定好了！';kPairES.close();kPairES=null;
+      try{fetch(NTFY+'djpair-'+tp,{method:'POST',body:JSON.stringify({type:'ok'})})}catch(x){}
+      setTimeout(()=>{$('kPairOver').hidden=true;kMsg('手機已經幫這台設定好金鑰，可以搜尋點歌了');kRender()},900)}catch(x){$('kPairMsg').textContent='收到了但解不開，請關掉再按一次'}}}catch(e){$('kPairMsg').textContent='連不上網路，請確認車機有網路'}}
+$('kPairClose').onclick=()=>{$('kPairOver').hidden=true;if(kPairES){kPairES.close();kPairES=null}};
+window.addEventListener('hashchange',()=>{if(/(?:^#|&)(pair|guest|ytkey)=/.test(location.hash))location.reload()});
+const PAIR=(location.hash.match(/(?:^#|&)pair=([a-z0-9]{8,})\.([a-z0-9]{16,})/)||[]);
+async function pSend(){const v=ls.get('ytkey')||'';if(!v){$('pMsg').textContent='這支手機還沒有金鑰。請先複製一鍵設定連結，再按下面的按鈕；或先點一次一鍵設定連結，再重新掃 QR Code。';$('pPaste').hidden=false;return}
+  try{const k=await aesKey(PAIR[2]),iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(v));
+    const r=await fetch(NTFY+'djpair-'+PAIR[1],{method:'POST',body:JSON.stringify({type:'key',iv:b64e(iv),ct:b64e(ct)})});
+    $('pMsg').textContent=r.ok?'已經傳給那一台了，請看那台的畫面。這支手機可以關掉這頁。':'傳送失敗，請再掃一次';$('pPaste').hidden=true}catch(e){$('pMsg').textContent='傳送失敗，請確認手機有網路，再掃一次'}}
+if(PAIR[1]){document.body.classList.add('pair');document.title='設定金鑰';history.replaceState(null,'',location.pathname+location.search);pSend();
+  $('pPaste').onclick=async()=>{try{const t=await navigator.clipboard.readText(),k=keyFrom(t);if(!k){$('pMsg').textContent='剪貼簿裡沒有金鑰，請先複製一鍵設定連結';return}ls.set('ytkey',k);pSend()}catch(x){$('pMsg').textContent='這支手機不讓讀剪貼簿，請先點一次一鍵設定連結，再重新掃 QR Code'}}}
 spBoot();lib();render();if(MODE==='ktv'){kInit();kRender()}if(kRoomOn&&!GUEST){kListen();kMini()}
 }
 </script>
