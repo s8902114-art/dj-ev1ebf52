@@ -112,6 +112,9 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none;color:inherit}
 .rh{font-size:15px;margin:18px 0 8px;font-weight:900}
 .sres{max-height:none}
 .sres .btn{flex:none}
+.arow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:6px 0}
+.arow .rh{margin:12px 0 6px}
+.more{margin-top:10px}
 .sphint{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
 .tlabel{font-size:13px;color:var(--mute);margin-top:14px}
 .chip.th{--c:var(--ink)}
@@ -529,14 +532,24 @@ async function spBoot(){if(!SPA.on)return;const u=new URL(location.href),code=u.
     history.replaceState(null,'',SPA.redirect)}
   SPA.ok=!!(await spToken());lib()}
 let spQ='',spRes=null,spBusy=false;
+async function spGet(params){const at=await spToken();if(!at){SPA.ok=false;return{err:401}}
+  try{const r=await fetch('https://api.spotify.com/v1/search?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+at}});
+    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(x){}if(r.status===401){ls.del('sp_at');ls.del('sp_exp')}return{err:r.status,msg:m}}
+    return{j:await r.json()}}catch(e){return{err:'連線',msg:String(e&&e.message||'')}}}
+const spTr=j=>((j&&j.tracks&&j.tracks.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:x.artists.map(y=>y.name).join(', '),ms:x.duration_ms}));
 async function spSearch(q){if(!SPA.ok||!q){spRes=null;return}spQ=q;spBusy=true;
-  try{const at=await spToken();if(!at){SPA.ok=false;spBusy=false;lib();return}
-    const r=await fetch('https://api.spotify.com/v1/search?'+new URLSearchParams({q,type:'track,playlist',limit:'10'}),{headers:{Authorization:'Bearer '+at}});
-    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(x){}if(r.status===401){ls.del('sp_at');ls.del('sp_exp')}spRes={err:r.status,msg:m};spBusy=false;if(qs===q)renderSearch();return}
-    const j=await r.json();if(q!==spQ)return;
-    spRes={tracks:((j&&j.tracks&&j.tracks.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:x.artists.map(y=>y.name).join(', '),ms:x.duration_ms})),
-      lists:((j&&j.playlists&&j.playlists.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:(x.owner&&x.owner.display_name)||'',n:x.tracks&&x.tracks.total}))}}
-  catch(e){spRes={err:'連線',msg:String(e&&e.message||'')}}spBusy=false;if(qs===q)renderSearch()}
+  const g=await spGet({q,type:'track,playlist,artist',limit:'10'});if(q!==spQ)return;
+  if(g.err){spRes={err:g.err,msg:g.msg}}
+  else{const j=g.j;spRes={trackQ:q,artist:'',tracks:spTr(j),next:j.tracks&&j.tracks.next?10:null,
+    lists:((j.playlists&&j.playlists.items)||[]).filter(Boolean).map(x=>({id:x.id,t:x.name,a:(x.owner&&x.owner.display_name)||'',n:x.tracks&&x.tracks.total})),
+    artists:((j.artists&&j.artists.items)||[]).filter(Boolean).slice(0,3).map(x=>x.name)}}
+  spBusy=false;if(qs===q)renderSearch()}
+async function spMoreTracks(){const R=spRes;if(!R||R.next==null||R.loading)return;R.loading=true;renderSearch();
+  const g=await spGet({q:R.trackQ,type:'track',limit:'10',offset:String(R.next)});R.loading=false;if(R!==spRes)return;
+  if(g.err){R.moreErr=g.err}else{const add=spTr(g.j),seen=new Set(R.tracks.map(x=>x.id));add.forEach(x=>{if(!seen.has(x.id))R.tracks.push(x)});R.next=g.j.tracks&&g.j.tracks.next&&R.next<990?R.next+10:null}
+  renderSearch()}
+function spArtistAll(name){const R=spRes;if(!R)return;R.artist=name;R.trackQ='artist:"'+name+'"';R.tracks=[];R.next=0;R.moreErr=null;spMoreTracks()}
+function spBackToSearch(){spQ='';spSearch(qs)}
 const SYN={warm:'暖場 背景 等待 入座',enter:'進場 登場 開場 出場',talk:'討論 填表 輕音樂 純音樂 背景 讀書',mid:'中場 用餐 遊戲 休息',award:'頒獎 表揚 抽獎 得獎',photo:'拍照 合照 慶生',end:'散場 送客 結尾 收尾'};
 const IDX=(()=>{const m=new Map(),add=(t,a,scene,src,x)=>{const k=t+'|'+a+'|'+scene;let e=m.get(k);if(!e){e={t,a,scene,src:[],why:'',clap:'',use:''};m.set(k,e)}if(!e.src.includes(src))e.src.push(src);if(x){e.why=e.why||x[3]||'';e.clap=e.clap||x[4]||'';e.use=e.use||x[2]||''}};
   SC.forEach(c=>(LIB[c.k]||[]).forEach(r=>add(r[0],r[1],c.k,'通用・'+c.n,r)));
@@ -557,11 +570,15 @@ function spHtml(){if(!SPA.on)return '<div class="sphint"><b>這裡只搜得到�
   if(!SPA.ok)return '<div class="sphint"><b>想搜尋 Spotify 上所有的歌？</b><span class="pm">連結一次你的 Spotify 帳號就能搜。</span><button class="btn sm pl" id="spLogin">連結 Spotify</button></div>';
   if(spQ!==qs&&!spBusy)spSearch(qs);
   if(!spRes||spBusy||spQ!==qs)return '<h3 class="rh">Spotify 上的</h3><p class="pm">搜尋中…</p>';
-  if(spRes.err)return '<h3 class="rh">Spotify 上的</h3><p class="pm">Spotify 搜尋失敗（代碼 '+esc(String(spRes.err))+(spRes.msg?'：'+esc(spRes.msg):'')+'）。'+(spRes.err===401?'請重新整理頁面再連結一次 Spotify。':'請把這行截圖給 Claude。')+'</p>'+(spRes.err===401?'<button class="btn sm pl" id="spLogin">重新連結 Spotify</button>':'');
+  const R=spRes;
+  if(R.err)return '<h3 class="rh">Spotify 上的</h3><p class="pm">Spotify 搜尋失敗（代碼 '+esc(String(R.err))+(R.msg?'：'+esc(R.msg):'')+'）。'+(R.err===401?'請重新連結一次 Spotify。':'請把這行截圖給 Claude。')+'</p>'+(R.err===401?'<button class="btn sm pl" id="spLogin">重新連結 Spotify</button>':'');
   const add='加入「'+sc(tab).n+'」';
-  const T=spRes.tracks.map((x,i)=>'<li><button class="qb" data-st="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>'+esc(x.a)+' · '+fmt(x.ms/1000)+'</small></span><button class="btn sm" data-sta="'+i+'">'+add+'</button></li>').join('');
-  const L=spRes.lists.slice(0,8).map((x,i)=>'<li><button class="qb" data-sl="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>歌單 · '+esc(x.a)+(x.n?' · '+x.n+' 首':'')+'</small></span><button class="btn sm" data-sla="'+i+'">'+add+'</button></li>').join('');
-  return '<h3 class="rh">Spotify 上的歌</h3><ol class="ql sres">'+(T||'<li class="pm">沒有找到歌曲</li>')+'</ol>'+(L?'<h3 class="rh">Spotify 上的歌單</h3><ol class="ql sres">'+L+'</ol>':'')+'<p class="pm">「加入」會排進目前選的情境；想放別的情境，先點下面的情境再加入。</p>'}
+  const AR=!R.artist&&R.artists.length?'<div class="arow">'+R.artists.map((n,i)=>'<button class="btn sm" data-sar="'+i+'">看「'+esc(n)+'」的所有歌</button>').join('')+'</div>':'';
+  const head=R.artist?'<div class="arow"><h3 class="rh">「'+esc(R.artist)+'」的歌</h3><button class="btn sm" id="spBack">回到搜尋結果</button></div>':'<h3 class="rh">Spotify 上的歌</h3>';
+  const T=R.tracks.map((x,i)=>'<li><button class="qb" data-st="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>'+esc(x.a)+' · '+fmt(x.ms/1000)+'</small></span><button class="btn sm" data-sta="'+i+'">'+add+'</button></li>').join('');
+  const more=R.loading?'<p class="pm">載入中…</p>':R.next!=null?'<button class="btn sm more" id="spMore">載入更多（目前 '+R.tracks.length+' 首）</button>':R.tracks.length?'<p class="pm">共 '+R.tracks.length+' 首，已經全部列出。</p>':'';
+  const L=R.artist?'':R.lists.slice(0,8).map((x,i)=>'<li><button class="qb" data-sl="'+i+'" aria-label="播放">▶</button><span class="qt">'+esc(x.t)+' <small>歌單 · '+esc(x.a)+(x.n?' · '+x.n+' 首':'')+'</small></span><button class="btn sm" data-sla="'+i+'">'+add+'</button></li>').join('');
+  return AR+head+'<ol class="ql sres">'+(T||'<li class="pm">沒有找到歌曲</li>')+'</ol>'+more+(R.moreErr?'<p class="pm">載入更多失敗（代碼 '+esc(String(R.moreErr))+'）</p>':'')+(L?'<h3 class="rh">Spotify 上的歌單</h3><ol class="ql sres">'+L+'</ol>':'')+'<p class="pm">「加入」會排進目前選的情境；想放別的情境，先點下面的情境再加入。</p>'}
 function lib(){
   $('chips').innerHTML=SC.map(s=>'<button class="chip" style="--c:'+s.c+'" aria-pressed="'+(s.k===tab)+'" data-k="'+s.k+'">'+s.n+'</button>').join('');
   $('themes').innerHTML=THEMES.map(t=>'<button class="chip th" aria-pressed="'+(t===th)+'" data-t="'+t.k+'">'+t.n+'</button>').join('');
@@ -586,6 +603,9 @@ let qT;$('q').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{q
 $('themes').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;th=THEMES.find(t=>t.k===b.dataset.t);wl=Object.keys(wtabs())[0];try{localStorage.setItem('djtheme2',th.k)}catch(x){}lib()});
 $('cards').addEventListener('click',e=>{
   if(e.target.closest('#spLogin')){spLogin();return}
+  if(e.target.closest('#spMore')){spMoreTracks();return}
+  if(e.target.closest('#spBack')){spBackToSearch();return}
+  const sar=e.target.closest('[data-sar]');if(sar){spArtistAll(spRes.artists[+sar.dataset.sar]);return}
   const st=e.target.closest('[data-st]');if(st){const x=spRes.tracks[+st.dataset.st];tmp={id:'tmp'+(uid++),scene:tab,t:x.t,a:x.a,in:0,out:null,fi:0,fo:0,sid:x.id};$('edit').dataset.id='';play(tmp.id,0);return}
   const sta=e.target.closest('[data-sta]');if(sta){const x=spRes.tracks[+sta.dataset.sta],whole=tab==='warm'||tab==='end'||tab==='talk';const n=mk(tab,x.t,x.a,0,whole?null:30,whole?2:0,whole?6:3);n.sid=x.id;insert(n);done(sta);return}
   const sl=e.target.closest('[data-sl]');if(sl){const x=spRes.lists[+sl.dataset.sl];preview(tab,x.t,'Spotify 歌單',null,x.id);return}
