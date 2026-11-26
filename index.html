@@ -690,7 +690,7 @@ $('ownForm').addEventListener('submit',e=>{e.preventDefault();
   else if(u){note='連結要以 https:// 開頭，已先加入歌名。'}
   insert(n);$('ownT').value='';$('ownA').value='';$('ownU').value='';$('ownMsg').textContent=note});
 /* KTV mode: search karaoke videos on YouTube, queue them, sing on a big screen */
-const YT_KEY='';
+let YT_KEY=ls.get('ytkey')||'';
 let MODE=ls.get('mode')==='ktv'?'ktv':'dj',KP=null,KPready=false,KC=null,kPend=false,kRes=[],kNextTok='',kQ='',kBusy=false,kErr='';
 let KQ=[];try{KQ=JSON.parse(ls.get('ktvq')||'[]')}catch(e){}if(!Array.isArray(KQ))KQ=[];
 let kSfx=ls.get('ktvsfx')||'KTV';const SFX=['KTV','官方 KTV','伴奏','原版'];
@@ -727,9 +727,9 @@ function kRender(){if(MODE!=='ktv')return;const yOK=ytMode==='ok';
   $('kChart').innerHTML=KCH[kTab].s.map((x,i)=>'<li><span class="krank">'+(i+1)+'</span><span class="qt">'+esc(x[0])+' <small>'+esc(x[1])+'</small></span><button class="btn sm pl" style="--c:var(--photo)" data-kca="'+i+'">點歌</button><button class="btn sm" data-kcv="'+i+'">選版本</button></li>').join('');
   $('kSfx').innerHTML=SFX.map(x=>'<button class="chip" aria-pressed="'+(x===kSfx)+'" data-ksfx="'+x+'">'+x+'</button>').join('');
   let h='';
-  if(!YT_KEY)h='<p class="pm">還沒設定 YouTube 搜尋金鑰，所以暫時不能搜尋。可以先在下面貼影片網址點歌。</p>';
+  if(!YT_KEY)h='<div class="sphint"><b>第一次使用：貼上你的 YouTube 搜尋金鑰</b><span class="pm">金鑰只存在這台裝置的瀏覽器裡，不會公開。電腦、手機、車機要各貼一次。</span><form id="kKeyForm" class="kform" style="width:100%" autocomplete="off"><input id="kKey" placeholder="貼上金鑰"><button class="btn pl" style="--c:var(--photo)" type="submit">儲存</button></form></div>';
   else if(kBusy&&!kRes.length)h='<p class="pm">搜尋中…</p>';
-  else if(kErr)h='<p class="pm">搜尋失敗（'+esc(kErr)+'），請把這行截圖給 Claude。</p>';
+  else if(kErr)h='<p class="pm">搜尋失敗（'+esc(kErr)+'），請把這行截圖給 Claude。</p><button class="btn sm" id="kKeyReset">重新貼金鑰</button>';
   else if(kQ&&!kRes.length)h='<p class="pm">沒有找到，換個關鍵字試試。</p>';
   else if(kRes.length)h='<ul class="kres">'+kRes.map((x,i)=>'<li>'+(x.img?'<img src="'+esc(x.img)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="qt">'+esc(x.t)+'<br><small>'+esc(x.ch)+'</small></span><span class="kb"><button class="btn sm pl" style="--c:var(--photo)" data-kadd="'+i+'">點歌</button><button class="btn sm" data-kins="'+i+'">插播</button></span></li>').join('')+'</ul>'+(kNextTok?'<button class="btn sm more" id="kMore">'+(kBusy?'載入中…':'載入更多')+'</button>':'');
   $('kRes').innerHTML=h;
@@ -746,7 +746,8 @@ async function kPaste(u){const id=ytId(u);if(!id){kMsg('看不懂這個網址，
 $('modeDJ').onclick=()=>setMode('dj');$('modeKTV').onclick=()=>setMode('ktv');
 $('kForm').addEventListener('submit',e=>{e.preventDefault();kQ=$('kq').value.trim();kSearch(false)});
 $('kPaste').addEventListener('submit',e=>{e.preventDefault();const u=$('ku').value.trim();if(u){kPaste(u);$('ku').value=''}});
-$('kRes').addEventListener('click',e=>{const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(kRes[+a.dataset.kadd],false);else if(b)kAdd(kRes[+b.dataset.kins],true);else if(e.target.closest('#kMore'))kSearch(true)});
+$('kRes').addEventListener('submit',e=>{if(e.target.id!=='kKeyForm')return;e.preventDefault();const v=$('kKey').value.trim();if(!v)return;YT_KEY=v;ls.set('ytkey',v);kMsg('金鑰已儲存，可以開始搜尋點歌了');kRender()});
+$('kRes').addEventListener('click',e=>{if(e.target.closest('#kKeyReset')){YT_KEY='';ls.del('ytkey');kErr='';kRender();return}const a=e.target.closest('[data-kadd]'),b=e.target.closest('[data-kins]');if(a)kAdd(kRes[+a.dataset.kadd],false);else if(b)kAdd(kRes[+b.dataset.kins],true);else if(e.target.closest('#kMore'))kSearch(true)});
 $('kSfx').addEventListener('click',e=>{const b=e.target.closest('[data-ksfx]');if(!b)return;kSfx=b.dataset.ksfx;ls.set('ktvsfx',kSfx);if(kQ)kSearch(false);else kRender()});
 $('kChartTabs').addEventListener('click',e=>{const b=e.target.closest('[data-kct]');if(b){kTab=b.dataset.kct;ls.set('ktvchart',kTab);kRender()}});
 $('kChart').addEventListener('click',e=>{const a=e.target.closest('[data-kca]'),v=e.target.closest('[data-kcv]');
